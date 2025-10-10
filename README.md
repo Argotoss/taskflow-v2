@@ -6,6 +6,7 @@ Taskflow v2 is a multi-package workspace targeting a Fastify + TypeScript backen
 ## Repository Layout
 - `apps/api`: Fastify service with Vitest coverage and TypeScript build pipeline.
 - `packages/config`: shared environment loader used across services.
+- `packages/types`: shared Zod schemas and DTOs for API contracts.
 - `packages/db`: Prisma schema and client wrapper.
 - `infra/terraform`: Terraform stack for VPC, ECS Fargate, ECR, and supporting AWS resources.
 - `.github/workflows`: CI for lint/test/build and CD pipeline for container promotion to AWS.
@@ -21,6 +22,7 @@ Install dependencies once:
 ```bash
 npm ci
 npm run prisma:generate
+npm run build:types
 ```
 
 Run quality gates:
