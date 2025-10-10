@@ -246,7 +246,7 @@ resource "random_password" "cache" {
 
 resource "aws_db_subnet_group" "main" {
   name_prefix = "${local.name}-db-subnets-"
-  subnet_ids  = aws_subnet.public[*].id
+  subnet_ids  = aws_subnet.private[*].id
 
   tags = local.common_tags
 
