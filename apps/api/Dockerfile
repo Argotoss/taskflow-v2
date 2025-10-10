@@ -5,6 +5,7 @@ FROM base AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json tsconfig.base.json eslint.config.js ./
 COPY .editorconfig .editorconfig
+COPY packages/config packages/config
 COPY apps/api/package.json apps/api/package.json
 RUN npm ci
 
@@ -12,6 +13,7 @@ FROM deps AS build
 COPY apps/api/tsconfig.json apps/api/tsconfig.json
 COPY apps/api/tsconfig.build.json apps/api/tsconfig.build.json
 COPY apps/api/vitest.config.ts apps/api/vitest.config.ts
+COPY packages/config packages/config
 COPY apps/api/src apps/api/src
 RUN npm run build
 RUN npm prune --omit=dev
