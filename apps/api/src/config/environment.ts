@@ -7,7 +7,9 @@ const schema = z.object({
   PORT: z.coerce.number().int().min(1).default(3000),
   JWT_SECRET: z.string().min(32).default('change-this-in-production-change-this-in-production'),
   JWT_EXPIRES_IN: z.string().default('15m'),
-  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30)
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  AWS_REGION: z.string().min(1).default('us-east-1'),
+  ATTACHMENTS_BUCKET: z.string().min(1).default('taskflow-local-attachments')
 });
 
 export const environment = loadEnv(schema);
