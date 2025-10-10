@@ -15,6 +15,7 @@
     "build:db": "npm run build --workspace @taskflow/db",
     "build:api": "npm run build --workspace @taskflow/api",
     "build": "npm run prisma:generate && npm run build:config && npm run build:types && npm run build:db && npm run build:api",
+    "pretest": "npm run prisma:generate && npm run build:config && npm run build:types && npm run build:db",
     "db:seed": "tsx --tsconfig packages/db/tsconfig.json packages/db/src/seed.ts",
     "lint": "eslint .",
     "test": "npm run test --if-present --workspaces"
