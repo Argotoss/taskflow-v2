@@ -40,6 +40,12 @@ variable "db_username" {
   default     = "taskflow"
 }
 
+variable "redis_node_type" {
+  description = "Node class for the Redis replication group."
+  type        = string
+  default     = "cache.t3.micro"
+}
+
 variable "container_port" {
   description = "Container port exposed by the API."
   type        = number

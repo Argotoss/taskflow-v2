@@ -27,3 +27,13 @@ output "database_secret_arn" {
   description = "Secrets Manager ARN containing Postgres credentials."
   value       = aws_secretsmanager_secret.database.arn
 }
+
+output "cache_endpoint" {
+  description = "Redis primary endpoint."
+  value       = aws_elasticache_replication_group.redis.primary_endpoint_address
+}
+
+output "cache_secret_arn" {
+  description = "Secrets Manager ARN containing Redis auth token."
+  value       = aws_secretsmanager_secret.cache.arn
+}

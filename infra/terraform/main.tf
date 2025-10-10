@@ -164,6 +164,28 @@ resource "aws_security_group" "database" {
   tags = merge(local.common_tags, { Name = "${local.name}-database-sg" })
 }
 
+resource "aws_security_group" "cache" {
+  name        = "${local.name}-cache-sg"
+  description = "Allow redis access from ECS tasks"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.service.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, { Name = "${local.name}-cache-sg" })
+}
+
 resource "aws_lb" "api" {
   name               = "${local.name}-alb"
   load_balancer_type = "application"
@@ -209,6 +231,11 @@ resource "random_password" "database" {
   override_characters = "!@#%^*()-_=+"
 }
 
+resource "random_password" "cache" {
+  length  = 32
+  special = false
+}
+
 resource "aws_db_subnet_group" "main" {
   name       = "${local.name}-db-subnets"
   subnet_ids = aws_subnet.private[*].id
@@ -250,6 +277,47 @@ resource "aws_secretsmanager_secret_version" "database" {
     host     = aws_db_instance.postgres.address
     port     = 5432
     database = "postgres"
+  })
+}
+
+resource "aws_elasticache_subnet_group" "main" {
+  name       = "${local.name}-cache-subnets"
+  subnet_ids = aws_subnet.private[*].id
+
+  tags = local.common_tags
+}
+
+resource "aws_elasticache_replication_group" "redis" {
+  replication_group_id          = "${local.name}-redis"
+  description                   = "Redis cache for ${local.name}"
+  node_type                     = var.redis_node_type
+  number_cache_clusters         = 1
+  automatic_failover_enabled    = false
+  multi_az_enabled              = false
+  engine                        = "redis"
+  engine_version                = "7.1"
+  port                          = 6379
+  transit_encryption_enabled    = true
+  auth_token                    = random_password.cache.result
+  maintenance_window            = "sun:06:00-sun:07:00"
+  security_group_ids            = [aws_security_group.cache.id]
+  subnet_group_name             = aws_elasticache_subnet_group.main.name
+
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret" "cache" {
+  name = "${local.name}/cache"
+
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "cache" {
+  secret_id     = aws_secretsmanager_secret.cache.id
+  secret_string = jsonencode({
+    host     = aws_elasticache_replication_group.redis.primary_endpoint_address
+    port     = aws_elasticache_replication_group.redis.port
+    password = random_password.cache.result
   })
 }
 
