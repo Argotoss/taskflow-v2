@@ -11,7 +11,7 @@ const projectRecord = {
   name: 'Team Portal',
   key: 'PORTAL',
   description: 'Internal portal',
-  status: 'ACTIVE',
+  status: 'ACTIVE' as const,
   createdAt: new Date('2024-01-05T00:00:00.000Z'),
   updatedAt: new Date('2024-01-05T00:00:00.000Z'),
   archivedAt: null

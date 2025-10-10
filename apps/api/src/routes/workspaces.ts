@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
+import type { Prisma } from '@taskflow/db';
 import {
   inviteMemberBodySchema,
   listWorkspaceMembersResponseSchema,
@@ -77,13 +78,15 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
 
     const { skip, take } = toPagination(query.page, query.pageSize);
 
-    const membershipFilter = {
+    const membershipFilter: Prisma.MembershipWhereInput = {
       userId,
       workspace: query.search
         ? {
-            name: {
-              contains: query.search,
-              mode: 'insensitive'
+            is: {
+              name: {
+                contains: query.search,
+                mode: 'insensitive' as const
+              }
             }
           }
         : undefined

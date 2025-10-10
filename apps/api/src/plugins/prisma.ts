@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import { prisma } from '@taskflow/db';
+import type { FastifyInstance } from 'fastify';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -7,7 +8,7 @@ declare module 'fastify' {
   }
 }
 
-export default fp(async (app) => {
+export default fp(async (app: FastifyInstance) => {
   app.decorate('prisma', prisma);
 
   app.addHook('onClose', async () => {

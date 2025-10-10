@@ -4,7 +4,12 @@
     "noEmit": true,
     "outDir": "dist",
     "rootDir": "src",
-    "moduleResolution": "NodeNext"
+    "moduleResolution": "NodeNext",
+    "types": [
+      "node",
+      "@fastify/sensible",
+      "@fastify/jwt"
+    ]
   },
   "include": [
     "src"

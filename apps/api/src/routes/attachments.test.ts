@@ -24,7 +24,7 @@ describe('attachment routes', () => {
   });
 
   const allowAccess = (): void => {
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>);
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
       id: 'mem',
       workspaceId,
@@ -32,7 +32,7 @@ describe('attachment routes', () => {
       role: 'OWNER',
       createdAt: new Date(),
       updatedAt: new Date()
-    });
+    } as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
   };
 
   it('returns a presigned upload payload', async () => {
@@ -71,7 +71,7 @@ describe('attachment routes', () => {
         name: 'Owner',
         avatarUrl: null
       }
-    });
+    } as unknown as Awaited<ReturnType<typeof app.prisma.attachment.create>>);
 
     const response = await app.inject({
       method: 'POST',

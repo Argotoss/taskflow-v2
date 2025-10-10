@@ -7,6 +7,7 @@ import {
   taskParamsSchema,
   taskSummarySchema,
   updateTaskBodySchema,
+  projectParamsSchema,
   type TaskSummary
 } from '@taskflow/types';
 import { requireUserId } from '../utils/current-user.js';
@@ -78,7 +79,7 @@ const ensureProjectAccess = async (
 export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> => {
   app.get('/projects/:projectId/tasks', async (request) => {
     const userId = requireUserId(request);
-    const params = taskParamsSchema.pick({ projectId: true }).parse(request.params);
+    const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const query = taskListQuerySchema.parse(request.query ?? {});
 
     await ensureProjectAccess(app, params.projectId, userId);
@@ -93,7 +94,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
       title: query.search
         ? {
             contains: query.search,
-            mode: 'insensitive'
+            mode: 'insensitive' as const
           }
         : undefined
     };
@@ -134,7 +135,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
   app.post('/projects/:projectId/tasks', async (request, reply) => {
     const userId = requireUserId(request);
-    const params = taskParamsSchema.pick({ projectId: true }).parse(request.params);
+    const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const body = createTaskBodySchema.parse(request.body);
 
     await ensureProjectAccess(app, params.projectId, userId);
@@ -149,7 +150,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         status: body.status ?? undefined,
         priority: body.priority ?? undefined,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
-        sortOrder: body.sortOrder ?? 0
+        sortOrder: 0
       },
       select: {
         id: true,
@@ -226,7 +227,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
   app.post('/projects/:projectId/tasks/reorder', async (request) => {
     const userId = requireUserId(request);
-    const params = taskParamsSchema.pick({ projectId: true }).parse(request.params);
+    const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const body = reorderTasksBodySchema.parse(request.body);
 
     await ensureProjectAccess(app, params.projectId, userId);

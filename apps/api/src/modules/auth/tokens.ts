@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import type { AuthTokenType } from '@taskflow/types';
+import type * as fastifyJwt from '@fastify/jwt';
 import { environment } from '../../config/environment.js';
 
 const toHash = (token: string): string => crypto.createHash('sha256').update(token).digest('hex');
@@ -18,8 +19,12 @@ export class TokenService {
     this.app = app;
   }
 
+  private get jwt(): fastifyJwt.JWT {
+    return this.app.jwt;
+  }
+
   async generateAccessToken(payload: Record<string, unknown>): Promise<string> {
-    return this.app.jwt.sign(payload);
+    return Promise.resolve(this.jwt.sign(payload));
   }
 
   async generateRefreshToken(userId: string, type: AuthTokenType = 'REFRESH'): Promise<TokenPair> {
@@ -42,7 +47,7 @@ export class TokenService {
     return {
       accessToken,
       refreshToken: rawToken,
-      expiresIn: String(this.app.jwt.options.sign?.expiresIn ?? environment.JWT_EXPIRES_IN)
+      expiresIn: environment.JWT_EXPIRES_IN
     };
   }
 

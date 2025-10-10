@@ -58,7 +58,7 @@ export const registerProjectRoutes = async (app: FastifyInstance): Promise<void>
       name: query.search
         ? {
             contains: query.search,
-            mode: 'insensitive'
+            mode: 'insensitive' as const
           }
         : undefined
     };
@@ -120,8 +120,7 @@ export const registerProjectRoutes = async (app: FastifyInstance): Promise<void>
         ownerId: userId,
         name: body.name,
         key: body.key,
-        description: body.description ?? null,
-        status: body.status ?? undefined
+        description: body.description ?? null
       }
     });
 
