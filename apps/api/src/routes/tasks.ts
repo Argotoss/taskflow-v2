@@ -12,19 +12,23 @@ import {
 import { requireUserId } from '../utils/current-user.js';
 import type { Prisma } from '@taskflow/db';
 
-const serializeTask = (task: {
-  id: string;
-  projectId: string;
-  creatorId: string;
-  assigneeId: string | null;
-  title: string;
-  status: string;
-  priority: string;
-  sortOrder: Prisma.Decimal | number;
-  dueDate: Date | null;
-  createdAt: Date;
-  updatedAt: Date;
-}): TaskSummary =>
+type TaskRecord = Prisma.TaskGetPayload<{
+  select: {
+    id: true;
+    projectId: true;
+    creatorId: true;
+    assigneeId: true;
+    title: true;
+    status: true;
+    priority: true;
+    sortOrder: true;
+    dueDate: true;
+    createdAt: true;
+    updatedAt: true;
+  };
+}>;
+
+const serializeTask = (task: TaskRecord): TaskSummary =>
   taskSummarySchema.parse({
     id: task.id,
     projectId: task.projectId,

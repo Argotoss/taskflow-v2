@@ -9,23 +9,22 @@ import {
 } from '@taskflow/types';
 import { requireUserId } from '../utils/current-user.js';
 import { environment } from '../config/environment.js';
+import type { Prisma } from '@taskflow/db';
 
-const serializeAttachment = (attachment: {
-  id: string;
-  taskId: string;
-  uploaderId: string;
-  fileName: string;
-  fileSize: number;
-  contentType: string;
-  storageKey: string;
-  createdAt: Date;
-  uploader: {
-    id: string;
-    email: string;
-    name: string;
-    avatarUrl: string | null;
+type AttachmentRecord = Prisma.AttachmentGetPayload<{
+  include: {
+    uploader: {
+      select: {
+        id: true;
+        email: true;
+        name: true;
+        avatarUrl: true;
+      };
+    };
   };
-}): AttachmentSummary =>
+}>;
+
+const serializeAttachment = (attachment: AttachmentRecord): AttachmentSummary =>
   attachmentSummarySchema.parse({
     id: attachment.id,
     taskId: attachment.taskId,
@@ -120,15 +119,7 @@ export const registerAttachmentRoutes = async (app: FastifyInstance): Promise<vo
         contentType: body.contentType,
         storageKey: body.storageKey
       },
-      select: {
-        id: true,
-        taskId: true,
-        uploaderId: true,
-        fileName: true,
-        fileSize: true,
-        contentType: true,
-        storageKey: true,
-        createdAt: true,
+      include: {
         uploader: {
           select: {
             id: true,
@@ -162,15 +153,7 @@ export const registerAttachmentRoutes = async (app: FastifyInstance): Promise<vo
 
     const attachments = await app.prisma.attachment.findMany({
       where: { taskId: params.taskId },
-      select: {
-        id: true,
-        taskId: true,
-        uploaderId: true,
-        fileName: true,
-        fileSize: true,
-        contentType: true,
-        storageKey: true,
-        createdAt: true,
+      include: {
         uploader: {
           select: {
             id: true,

@@ -31,8 +31,5 @@
   },
   "engines": {
     "node": ">=20.10.0"
-  },
-  "dependencies": {
-    "fastify-type-provider-zod": "^6.0.0"
   }
 }

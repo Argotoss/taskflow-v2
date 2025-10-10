@@ -9,14 +9,9 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerCommentRoutes } from './routes/comments.js';
 import { registerAttachmentRoutes } from './routes/attachments.js';
-import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
-import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
 export const buildApp = (): FastifyInstance => {
-  const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
-
-  app.setValidatorCompiler(validatorCompiler);
-  app.setSerializerCompiler(serializerCompiler);
+  const app = Fastify({ logger: true });
 
   void app.register(sensible);
   void app.register(jwtPlugin);
