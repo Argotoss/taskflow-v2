@@ -1,0 +1,11 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

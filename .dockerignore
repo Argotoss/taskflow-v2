@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.git
+.husky
+.vscode
+.idea
+tmp
+*.log
+.env
+.env.*
+Dockerfile
+docker-compose.yml
