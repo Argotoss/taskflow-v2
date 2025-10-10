@@ -228,7 +228,7 @@ resource "aws_lb_listener" "http" {
 resource "random_password" "database" {
   length           = 32
   special          = true
-  override_characters = "!@#%^*()-_=+"
+  override_special = "!@#%^*()-_=+"
 }
 
 resource "random_password" "cache" {
@@ -246,7 +246,7 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier              = "${local.name}-postgres"
   engine                  = "postgres"
-  engine_version          = "15.5"
+  engine_version          = "15.4"
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
   storage_type            = "gp3"
@@ -291,7 +291,7 @@ resource "aws_elasticache_replication_group" "redis" {
   replication_group_id          = "${local.name}-redis"
   description                   = "Redis cache for ${local.name}"
   node_type                     = var.redis_node_type
-  number_cache_clusters         = 1
+  num_cache_clusters            = 1
   automatic_failover_enabled    = false
   multi_az_enabled              = false
   engine                        = "redis"
@@ -324,16 +324,24 @@ resource "aws_secretsmanager_secret_version" "cache" {
 resource "aws_s3_bucket" "attachments" {
   bucket = "${local.name}-attachments"
 
-  lifecycle_rule {
-    id      = "abort-multipart"
-    enabled = true
+  tags = merge(local.common_tags, { Name = "${local.name}-attachments" })
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "attachments" {
+  bucket = aws_s3_bucket.attachments.id
+
+  rule {
+    id     = "abort-multipart"
+    status = "Enabled"
+
+    filter {
+      prefix = ""
+    }
 
     abort_incomplete_multipart_upload {
       days_after_initiation = 7
     }
   }
-
-  tags = merge(local.common_tags, { Name = "${local.name}-attachments" })
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "attachments" {
@@ -359,7 +367,7 @@ resource "aws_s3_bucket_policy" "attachments" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = var.s3_enforce_tls ? [
       {
         Sid       = "EnforceTLS"
         Effect    = "Deny"
@@ -371,11 +379,11 @@ resource "aws_s3_bucket_policy" "attachments" {
         ]
         Condition = {
           Bool = {
-            "aws:SecureTransport" = var.s3_enforce_tls
+            "aws:SecureTransport" = "false"
           }
         }
       }
-    ]
+    ] : []
   })
 }
 
@@ -393,11 +401,6 @@ data "aws_iam_policy_document" "attachments" {
       aws_s3_bucket.attachments.arn,
       "${aws_s3_bucket.attachments.arn}/*"
     ]
-
-    principals {
-      type        = "AWS"
-      identifiers = [aws_iam_role.task_execution.arn]
-    }
   }
 }
 
@@ -637,6 +640,4 @@ resource "aws_cloudwatch_dashboard" "main" {
       }
     ]
   })
-
-  tags = local.common_tags
 }
