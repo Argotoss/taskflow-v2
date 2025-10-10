@@ -154,6 +154,14 @@ resource "aws_security_group" "database" {
     security_groups = [aws_security_group.service.id]
   }
 
+  ingress {
+    description = "Allow migrations from CI"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -246,7 +254,6 @@ resource "aws_db_subnet_group" "main" {
 resource "aws_db_instance" "postgres" {
   identifier              = "${local.name}-postgres"
   engine                  = "postgres"
-  engine_version          = "15.4"
   instance_class          = "db.t3.micro"
   allocated_storage       = 20
   storage_type            = "gp3"
