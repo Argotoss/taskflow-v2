@@ -17,3 +17,13 @@ output "ecs_service_name" {
   description = "ECS service name."
   value       = aws_ecs_service.api.name
 }
+
+output "database_endpoint" {
+  description = "Postgres endpoint address."
+  value       = aws_db_instance.postgres.address
+}
+
+output "database_secret_arn" {
+  description = "Secrets Manager ARN containing Postgres credentials."
+  value       = aws_secretsmanager_secret.database.arn
+}

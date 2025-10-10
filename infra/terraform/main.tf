@@ -7,8 +7,9 @@ data "aws_availability_zones" "available" {
 }
 
 locals {
-  name        = "${var.project_name}-${var.environment}"
-  subnet_zones = slice(data.aws_availability_zones.available.names, 0, length(var.public_subnet_cidrs))
+  name                 = "${var.project_name}-${var.environment}"
+  subnet_zones         = slice(data.aws_availability_zones.available.names, 0, length(var.public_subnet_cidrs))
+  private_subnet_zones = slice(data.aws_availability_zones.available.names, 0, length(var.private_subnet_cidrs))
 
   common_tags = merge(
     {
@@ -75,9 +76,25 @@ resource "aws_subnet" "public" {
   tags = merge(local.common_tags, { Name = "${local.name}-public-${count.index + 1}" })
 }
 
+resource "aws_subnet" "private" {
+  count             = length(var.private_subnet_cidrs)
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = var.private_subnet_cidrs[count.index]
+  availability_zone = local.private_subnet_zones[count.index]
+  map_public_ip_on_launch = false
+
+  tags = merge(local.common_tags, { Name = "${local.name}-private-${count.index + 1}" })
+}
+
 resource "aws_route_table_association" "public" {
   count          = length(aws_subnet.public)
   subnet_id      = aws_subnet.public[count.index].id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "private" {
+  count          = length(aws_subnet.private)
+  subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.public.id
 }
 
@@ -125,6 +142,28 @@ resource "aws_security_group" "service" {
   tags = merge(local.common_tags, { Name = "${local.name}-service-sg" })
 }
 
+resource "aws_security_group" "database" {
+  name        = "${local.name}-database-sg"
+  description = "Allow database access from ECS tasks"
+  vpc_id      = aws_vpc.main.id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.service.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.common_tags, { Name = "${local.name}-database-sg" })
+}
+
 resource "aws_lb" "api" {
   name               = "${local.name}-alb"
   load_balancer_type = "application"
@@ -162,6 +201,56 @@ resource "aws_lb_listener" "http" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.api.arn
   }
+}
+
+resource "random_password" "database" {
+  length           = 32
+  special          = true
+  override_characters = "!@#%^*()-_=+"
+}
+
+resource "aws_db_subnet_group" "main" {
+  name       = "${local.name}-db-subnets"
+  subnet_ids = aws_subnet.private[*].id
+
+  tags = local.common_tags
+}
+
+resource "aws_db_instance" "postgres" {
+  identifier              = "${local.name}-postgres"
+  engine                  = "postgres"
+  engine_version          = "15.5"
+  instance_class          = "db.t3.micro"
+  allocated_storage       = 20
+  storage_type            = "gp3"
+  username                = var.db_username
+  password                = random_password.database.result
+  db_subnet_group_name    = aws_db_subnet_group.main.name
+  vpc_security_group_ids  = [aws_security_group.database.id]
+  publicly_accessible     = false
+  skip_final_snapshot     = true
+  deletion_protection     = false
+  backup_retention_period = 1
+  max_allocated_storage   = 100
+
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret" "database" {
+  name = "${local.name}/database"
+
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "database" {
+  secret_id     = aws_secretsmanager_secret.database.id
+  secret_string = jsonencode({
+    username = var.db_username
+    password = random_password.database.result
+    host     = aws_db_instance.postgres.address
+    port     = 5432
+    database = "postgres"
+  })
 }
 
 resource "aws_ecs_cluster" "main" {

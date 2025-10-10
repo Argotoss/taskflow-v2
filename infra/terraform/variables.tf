@@ -28,6 +28,18 @@ variable "public_subnet_cidrs" {
   default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets used by data services."
+  type        = list(string)
+  default     = ["10.0.101.0/24", "10.0.102.0/24"]
+}
+
+variable "db_username" {
+  description = "Master username for the Postgres instance."
+  type        = string
+  default     = "taskflow"
+}
+
 variable "container_port" {
   description = "Container port exposed by the API."
   type        = number
