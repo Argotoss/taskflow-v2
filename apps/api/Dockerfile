@@ -13,7 +13,7 @@ COPY apps/api/tsconfig.json apps/api/tsconfig.json
 COPY apps/api/tsconfig.build.json apps/api/tsconfig.build.json
 COPY apps/api/vitest.config.ts apps/api/vitest.config.ts
 COPY apps/api/src apps/api/src
-RUN npm run build:api
+RUN npm run build
 RUN npm prune --omit=dev
 
 FROM base AS runtime

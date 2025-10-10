@@ -24,7 +24,7 @@ Run quality gates:
 ```bash
 npm run lint
 npm run test
-npm run build:api
+npm run build
 ```
 
 Start the API locally:

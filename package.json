@@ -9,7 +9,9 @@
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace @taskflow/api",
+    "build:config": "npm run build --workspace @taskflow/config",
     "build:api": "npm run build --workspace @taskflow/api",
+    "build": "npm run build:config && npm run build:api",
     "lint": "eslint .",
     "test": "npm run test --if-present --workspaces"
   },

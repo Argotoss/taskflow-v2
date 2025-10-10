@@ -1,3 +1,4 @@
+import { loadEnv } from '@taskflow/config';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -6,4 +7,4 @@ const schema = z.object({
   PORT: z.coerce.number().int().min(1).default(3000)
 });
 
-export const environment = schema.parse(process.env);
+export const environment = loadEnv(schema);
