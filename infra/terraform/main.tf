@@ -321,6 +321,113 @@ resource "aws_secretsmanager_secret_version" "cache" {
   })
 }
 
+resource "aws_s3_bucket" "attachments" {
+  bucket = "${local.name}-attachments"
+
+  lifecycle_rule {
+    id      = "abort-multipart"
+    enabled = true
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
+
+  tags = merge(local.common_tags, { Name = "${local.name}-attachments" })
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "attachments" {
+  bucket = aws_s3_bucket.attachments.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "aws:kms"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "attachments" {
+  bucket                  = aws_s3_bucket.attachments.id
+  block_public_acls       = var.s3_block_public_access
+  block_public_policy     = var.s3_block_public_access
+  ignore_public_acls      = var.s3_block_public_access
+  restrict_public_buckets = var.s3_block_public_access
+}
+
+resource "aws_s3_bucket_policy" "attachments" {
+  bucket = aws_s3_bucket.attachments.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnforceTLS"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.attachments.arn,
+          "${aws_s3_bucket.attachments.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = var.s3_enforce_tls
+          }
+        }
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "attachments" {
+  statement {
+    sid     = "AllowS3Access"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      aws_s3_bucket.attachments.arn,
+      "${aws_s3_bucket.attachments.arn}/*"
+    ]
+
+    principals {
+      type        = "AWS"
+      identifiers = [aws_iam_role.task_execution.arn]
+    }
+  }
+}
+
+resource "aws_iam_policy" "attachments" {
+  name        = "${local.name}-attachments"
+  description = "Allow ECS tasks to interact with the attachment bucket"
+  policy      = data.aws_iam_policy_document.attachments.json
+
+  tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "attachments" {
+  role       = aws_iam_role.task_execution.name
+  policy_arn = aws_iam_policy.attachments.arn
+}
+
+resource "aws_secretsmanager_secret" "attachments" {
+  name = "${local.name}/attachments"
+
+  tags = local.common_tags
+}
+
+resource "aws_secretsmanager_secret_version" "attachments" {
+  secret_id     = aws_secretsmanager_secret.attachments.id
+  secret_string = jsonencode({
+    bucket = aws_s3_bucket.attachments.bucket
+    region = var.aws_region
+  })
+}
+
 resource "aws_ecs_cluster" "main" {
   name = "${local.name}-cluster"
 

@@ -37,3 +37,13 @@ output "cache_secret_arn" {
   description = "Secrets Manager ARN containing Redis auth token."
   value       = aws_secretsmanager_secret.cache.arn
 }
+
+output "attachments_bucket" {
+  description = "S3 bucket for task attachments."
+  value       = aws_s3_bucket.attachments.bucket
+}
+
+output "attachments_secret_arn" {
+  description = "Secret storing attachment bucket metadata."
+  value       = aws_secretsmanager_secret.attachments.arn
+}

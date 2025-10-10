@@ -62,8 +62,7 @@ The API exposes `http://localhost:3000/health`.
    ```bash
    terraform -chdir=infra/terraform apply
    ```
-   Outputs include the load balancer DNS name and ECR repository URL.
-   Additional outputs expose the Postgres endpoint, Redis endpoint, and associated Secrets Manager ARNs.
+   Outputs include the load balancer DNS, ECR repo, database/cache endpoints, attachment bucket, and related secrets.
 
 ## Continuous Delivery
 The `deploy` workflow targets AWS Fargate using GitHub OIDC authentication. Required GitHub secrets/variables:

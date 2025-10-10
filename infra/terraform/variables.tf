@@ -87,3 +87,15 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "s3_block_public_access" {
+  description = "Block all public access to the attachment bucket."
+  type        = bool
+  default     = true
+}
+
+variable "s3_enforce_tls" {
+  description = "Require TLS for S3 access."
+  type        = bool
+  default     = true
+}
