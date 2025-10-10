@@ -39,6 +39,12 @@ export default [
         }
       ],
       '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          varsIgnorePattern: '^FastifyInstance$'
+        }
+      ],
       'no-console': [
         'error',
         {
@@ -47,6 +53,52 @@ export default [
           ]
         }
       ]
+    }
+  }
+  ,
+  {
+    files: [
+      '**/*.d.ts'
+    ],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest'
+      },
+      globals: {
+        ...globals.node,
+        ...globals.vitest
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/consistent-type-imports': 'off'
+    }
+  },
+  {
+    files: [
+      './apps/api/src/plugins/prisma.ts'
+    ],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest'
+      },
+      globals: {
+        ...globals.node,
+        ...globals.vitest
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off'
     }
   }
 ];
