@@ -36,3 +36,4 @@ export const paginatedResponseMetaSchema = z.object({
 
 export type PaginationQuery = z.infer<typeof paginationQuerySchema>;
 export type PaginatedResponseMeta = z.infer<typeof paginatedResponseMetaSchema>;
+export type AuthTokenType = z.infer<typeof authTokenTypeSchema>;

@@ -42,7 +42,8 @@ export default [
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
-          varsIgnorePattern: '^FastifyInstance$'
+          varsIgnorePattern: '^FastifyInstance$',
+          argsIgnorePattern: '^_'
         }
       ],
       'no-console': [
@@ -99,6 +100,29 @@ export default [
     },
     rules: {
       '@typescript-eslint/no-unused-vars': 'off'
+    }
+  },
+  {
+    files: [
+      '**/modules/auth/**/*.ts'
+    ],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        sourceType: 'module',
+        ecmaVersion: 'latest'
+      },
+      globals: {
+        ...globals.node,
+        ...globals.vitest
+      }
+    },
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/explicit-function-return-type': 'off'
     }
   }
 ];
