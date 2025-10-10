@@ -126,7 +126,7 @@ resource "aws_security_group" "service" {
 }
 
 resource "aws_lb" "api" {
-  name               = "${regexreplace(local.name, "[^a-zA-Z0-9-]", "")}-alb"
+  name               = "${local.name}-alb"
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = aws_subnet.public[*].id
@@ -135,7 +135,7 @@ resource "aws_lb" "api" {
 }
 
 resource "aws_lb_target_group" "api" {
-  name        = "${regexreplace(local.name, "[^a-zA-Z0-9-]", "")}-tg"
+  name        = "${local.name}-tg"
   port        = var.container_port
   protocol    = "HTTP"
   vpc_id      = aws_vpc.main.id
