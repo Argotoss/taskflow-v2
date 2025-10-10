@@ -42,10 +42,20 @@ jobs:
       - name: Build API
         run: npm run build
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Retrieve database secret
         id: database-secret
         run: |
           set -euo pipefail
+          if [[ -z "${DATABASE_SECRET_ARN:-}" ]]; then
+            echo "DATABASE_SECRET_ARN is not configured; add the secret in repository settings." >&2
+            exit 1
+          fi
           secret=$(aws secretsmanager get-secret-value --secret-id "${DATABASE_SECRET_ARN}" --query 'SecretString' --output text)
           username=$(echo "$secret" | jq -r '.username')
           password=$(echo "$secret" | jq -r '.password')
@@ -58,12 +68,6 @@ jobs:
         env:
           DATABASE_URL: ${{ steps.database-secret.outputs.database-url }}
         run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: login-ecr
