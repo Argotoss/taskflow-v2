@@ -22,6 +22,7 @@ Install dependencies once:
 ```bash
 npm ci
 npm run prisma:generate
+npm run db:seed # optional
 npm run build:types
 ```
 

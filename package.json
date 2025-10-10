@@ -15,6 +15,7 @@
     "build:db": "npm run build --workspace @taskflow/db",
     "build:api": "npm run build --workspace @taskflow/api",
     "build": "npm run prisma:generate && npm run build:config && npm run build:types && npm run build:db && npm run build:api",
+    "db:seed": "tsx --tsconfig packages/db/tsconfig.json packages/db/src/seed.ts",
     "lint": "eslint .",
     "test": "npm run test --if-present --workspaces"
   },
@@ -24,7 +25,8 @@
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.56.0",
     "globals": "^15.0.0",
-    "prisma": "^5.18.0"
+    "prisma": "^5.18.0",
+    "tsx": "^4.7.1"
   },
   "engines": {
     "node": ">=20.10.0"
