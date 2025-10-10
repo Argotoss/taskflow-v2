@@ -6,6 +6,7 @@ import prismaPlugin from './plugins/prisma.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerWorkspaceRoutes } from './routes/workspaces.js';
 import { registerProjectRoutes } from './routes/projects.js';
+import { registerTaskRoutes } from './routes/tasks.js';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 
@@ -21,6 +22,7 @@ export const buildApp = (): FastifyInstance => {
   app.register(registerHealthRoutes, { prefix: '/health' });
   app.register(registerWorkspaceRoutes);
   app.register(registerProjectRoutes);
+  app.register(registerTaskRoutes);
 
   return app;
 };
