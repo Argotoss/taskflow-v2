@@ -1,0 +1,11 @@
+project_name   = "taskflow"
+environment    = "staging"
+aws_region     = "us-east-1"
+container_port = 3000
+desired_count  = 1
+container_cpu  = 256
+container_memory = 512
+container_image_tag = "bootstrap"
+tags = {
+  Owner = "your-name"
+}
