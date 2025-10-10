@@ -6,6 +6,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY package.json package-lock.json tsconfig.base.json eslint.config.js ./
 COPY .editorconfig .editorconfig
 COPY packages/config packages/config
+COPY packages/types packages/types
+COPY packages/db packages/db
 COPY apps/api/package.json apps/api/package.json
 RUN npm ci
 
@@ -14,6 +16,8 @@ COPY apps/api/tsconfig.json apps/api/tsconfig.json
 COPY apps/api/tsconfig.build.json apps/api/tsconfig.build.json
 COPY apps/api/vitest.config.ts apps/api/vitest.config.ts
 COPY packages/config packages/config
+COPY packages/types packages/types
+COPY packages/db packages/db
 COPY apps/api/src apps/api/src
 RUN npm run build
 RUN npm prune --omit=dev
