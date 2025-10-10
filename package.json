@@ -9,9 +9,11 @@
   ],
   "scripts": {
     "dev:api": "npm run dev --workspace @taskflow/api",
+    "prisma:generate": "node scripts/prisma-generate.mjs",
     "build:config": "npm run build --workspace @taskflow/config",
+    "build:db": "npm run build --workspace @taskflow/db",
     "build:api": "npm run build --workspace @taskflow/api",
-    "build": "npm run build:config && npm run build:api",
+    "build": "npm run prisma:generate && npm run build:config && npm run build:db && npm run build:api",
     "lint": "eslint .",
     "test": "npm run test --if-present --workspaces"
   },
@@ -20,7 +22,8 @@
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.56.0",
-    "globals": "^15.0.0"
+    "globals": "^15.0.0",
+    "prisma": "^5.18.0"
   },
   "engines": {
     "node": ">=20.10.0"

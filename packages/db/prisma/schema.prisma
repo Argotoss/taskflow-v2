@@ -1,0 +1,259 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  CONTRIBUTOR
+  VIEWER
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AuthTokenType {
+  REFRESH
+  RESET_PASSWORD
+  WORKSPACE_INVITE
+}
+
+enum ActivityEntity {
+  WORKSPACE
+  PROJECT
+  TASK
+  COMMENT
+  ATTACHMENT
+  MEMBERSHIP
+}
+
+enum ActivityAction {
+  CREATED
+  UPDATED
+  DELETED
+  STATUS_CHANGED
+  ASSIGNEE_CHANGED
+  PRIORITY_CHANGED
+  COMMENTED
+  ATTACHMENT_ADDED
+}
+
+model User {
+  id             String             @id @default(uuid()) @db.Uuid
+  email          String             @unique
+  passwordHash   String
+  name           String
+  avatarUrl      String?
+  timezone       String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  memberships    Membership[]
+  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
+  projectsOwned  Project[]          @relation("ProjectOwner")
+  tasksCreated   Task[]             @relation("TaskCreator")
+  tasksAssigned  Task[]             @relation("TaskAssignee")
+  comments       Comment[]
+  attachments    Attachment[]
+  notifications  Notification[]
+  authTokens     AuthToken[]
+  invitesSent    WorkspaceInvite[]  @relation("InviteSender")
+  activities     Activity[]         @relation("ActivityActor")
+}
+
+model Workspace {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String        @unique
+  description String?
+  ownerId     String        @db.Uuid
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owner       User          @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  projects    Project[]
+  invites     WorkspaceInvite[]
+  activities  Activity[]
+
+  @@index([ownerId])
+}
+
+model Membership {
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String         @db.Uuid
+  userId      String         @db.Uuid
+  role        MembershipRole @default(CONTRIBUTOR)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id])
+  user        User           @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  ownerId     String        @db.Uuid
+  name        String
+  key         String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  archivedAt  DateTime?
+
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
+  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  tasks       Task[]
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId])
+}
+
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  projectId   String       @db.Uuid
+  creatorId   String       @db.Uuid
+  assigneeId  String?      @db.Uuid
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  sortOrder   Decimal      @default(0)
+  dueDate     DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project     Project      @relation(fields: [projectId], references: [id])
+  creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  comments    Comment[]
+  attachments Attachment[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([status])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task      Task     @relation(fields: [taskId], references: [id])
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([taskId])
+}
+
+model Attachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  taskId      String   @db.Uuid
+  uploaderId  String   @db.Uuid
+  fileName    String
+  fileSize    Int
+  contentType String
+  storageKey  String   @unique
+  createdAt   DateTime @default(now())
+
+  task        Task     @relation(fields: [taskId], references: [id])
+  uploader    User     @relation(fields: [uploaderId], references: [id])
+
+  @@index([taskId])
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+model AuthToken {
+  id         String        @id @default(uuid()) @db.Uuid
+  userId     String        @db.Uuid
+  tokenHash  String        @unique
+  type       AuthTokenType
+  issuedAt   DateTime      @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime      @default(now())
+
+  user       User          @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model WorkspaceInvite {
+  id         String         @id @default(uuid()) @db.Uuid
+  workspaceId String        @db.Uuid
+  inviterId  String         @db.Uuid
+  email      String
+  role       MembershipRole @default(CONTRIBUTOR)
+  token      String         @unique
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  workspace  Workspace      @relation(fields: [workspaceId], references: [id])
+  inviter    User           @relation("InviteSender", fields: [inviterId], references: [id])
+
+  @@index([workspaceId])
+  @@index([email])
+}
+
+model Activity {
+  id          String          @id @default(uuid()) @db.Uuid
+  workspaceId String          @db.Uuid
+  actorId     String?         @db.Uuid
+  entityType  ActivityEntity
+  entityId    String
+  action      ActivityAction
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  actor       User?           @relation("ActivityActor", fields: [actorId], references: [id])
+
+  @@index([workspaceId])
+  @@index([entityType, entityId])
+}
