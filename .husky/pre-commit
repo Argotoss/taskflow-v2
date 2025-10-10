@@ -1,4 +1,14 @@
 #!/usr/bin/env sh
-. "$(dirname "$0")/_/husky.sh"
+set -e
 
-npm run lint && npm run test
+if command -v node >/dev/null 2>&1; then
+  NODE_BIN_DIR=$(dirname "$(command -v node)")
+elif [ -d "$HOME/.nvm/versions/node/v20.19.5/bin" ]; then
+  NODE_BIN_DIR="$HOME/.nvm/versions/node/v20.19.5/bin"
+else
+  NODE_BIN_DIR="$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node | head -n 1)/bin"
+fi
+export PATH="$NODE_BIN_DIR:$PATH"
+
+npm run lint
+npm run test
