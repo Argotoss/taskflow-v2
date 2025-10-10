@@ -245,10 +245,14 @@ resource "random_password" "cache" {
 }
 
 resource "aws_db_subnet_group" "main" {
-  name       = "${local.name}-db-subnets"
-  subnet_ids = aws_subnet.private[*].id
+  name_prefix = "${local.name}-db-subnets-"
+  subnet_ids  = aws_subnet.public[*].id
 
   tags = local.common_tags
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_db_instance" "postgres" {
