@@ -13,5 +13,6 @@ declare module 'fastify' {
     sendFile(_filename: string, _rootPath?: string): this;
     sendFile(_filename: string, _options?: SendOptions): this;
     sendFile(_filename: string, _rootPath?: string, _options?: SendOptions): this;
+    notFound(message?: string): this;
   }
 }

@@ -85,10 +85,10 @@ export default fp(async (app: FastifyInstance) => {
 
   app.get('/', async (_, reply) => reply.type('text/html').sendFile('index.html'));
 
-  app.get('/*', async (request, reply) => {
+  app.setNotFoundHandler((request, reply) => {
     if (request.method === 'GET') {
       return reply.type('text/html').sendFile('index.html');
     }
-    return reply.callNotFound();
+    return reply.notFound();
   });
 });

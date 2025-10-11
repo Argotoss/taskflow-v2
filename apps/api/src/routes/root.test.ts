@@ -33,4 +33,14 @@ describe('root route', () => {
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/html');
   });
+
+  it('serves landing page for nested routes', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/any/path'
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/html');
+  });
 });
