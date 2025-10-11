@@ -23,4 +23,14 @@ describe('root route', () => {
     expect(response.headers['content-type']).toContain('text/html');
     expect(response.body).toContain('Taskflow');
   });
+
+  it('serves landing page when accept header missing', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/'
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/html');
+  });
 });

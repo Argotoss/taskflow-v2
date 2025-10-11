@@ -73,6 +73,7 @@ export default fp(async (app: FastifyInstance) => {
   if (!fs.existsSync(webDistPath)) {
     app.log.warn({ webDistPath }, 'web assets not found, serving fallback landing page');
     app.get('/', async (_, reply) => reply.type('text/html').send(fallbackHtml));
+    app.get('/*', async (_, reply) => reply.type('text/html').send(fallbackHtml));
     return;
   }
 
@@ -85,8 +86,12 @@ export default fp(async (app: FastifyInstance) => {
   app.get('/', async (_, reply) => reply.type('text/html').sendFile('index.html'));
 
   app.get('/*', async (request, reply) => {
+    if (request.method !== 'GET') {
+      return reply.callNotFound();
+    }
+
     const accepts = request.headers.accept ?? '';
-    if (request.method === 'GET' && accepts.includes('text/html')) {
+    if (!accepts || accepts.includes('text/html') || accepts === '*/*') {
       return reply.type('text/html').sendFile('index.html');
     }
 
