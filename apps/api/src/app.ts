@@ -9,6 +9,7 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerCommentRoutes } from './routes/comments.js';
 import { registerAttachmentRoutes } from './routes/attachments.js';
+import staticAssetsPlugin from './plugins/static.js';
 
 export const buildApp = (): FastifyInstance => {
   const app = Fastify({ logger: true });
@@ -22,6 +23,7 @@ export const buildApp = (): FastifyInstance => {
   app.register(registerTaskRoutes);
   app.register(registerCommentRoutes);
   app.register(registerAttachmentRoutes);
+  void app.register(staticAssetsPlugin);
 
   return app;
 };

@@ -10,6 +10,7 @@ COPY packages/config packages/config
 COPY packages/types packages/types
 COPY packages/db packages/db
 COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
 RUN npm ci
 
 FROM deps AS build
@@ -21,6 +22,7 @@ COPY packages/types packages/types
 COPY packages/db packages/db
 COPY scripts scripts
 COPY apps/api/src apps/api/src
+COPY apps/web apps/web
 RUN npm run build
 RUN npm prune --omit=dev
 
@@ -32,5 +34,6 @@ COPY --from=build /app/package-lock.json ./package-lock.json
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
+COPY --from=build /app/apps/web/dist ./apps/web/dist
 EXPOSE 3000
 CMD ["node", "apps/api/dist/server.js"]
