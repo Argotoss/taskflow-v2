@@ -35,5 +35,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/apps/web/dist ./apps/web/dist
+COPY --from=build /app/packages/config ./packages/config
+COPY --from=build /app/packages/types ./packages/types
+COPY --from=build /app/packages/db ./packages/db
 EXPOSE 3000
 CMD ["node", "apps/api/dist/server.js"]
