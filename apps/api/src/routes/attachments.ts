@@ -64,7 +64,7 @@ export const registerAttachmentRoutes = async (app: FastifyInstance): Promise<vo
   const taskParamSchema = taskParamsSchema.pick({ taskId: true });
 
   app.post('/tasks/:taskId/attachments/presign', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamSchema.parse(request.params);
     const body = createAttachmentBodySchema.parse(request.body);
 
@@ -94,7 +94,7 @@ export const registerAttachmentRoutes = async (app: FastifyInstance): Promise<vo
   });
 
   app.post('/tasks/:taskId/attachments', async (request, reply) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamSchema.parse(request.params);
     const body = createAttachmentRecordSchema.parse(request.body);
 
@@ -136,7 +136,7 @@ export const registerAttachmentRoutes = async (app: FastifyInstance): Promise<vo
   });
 
   app.get('/tasks/:taskId/attachments', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamSchema.parse(request.params);
 
     const task = await fetchTaskWorkspace(app, params.taskId);

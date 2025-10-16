@@ -74,7 +74,7 @@ export const registerCommentRoutes = async (app: FastifyInstance): Promise<void>
   const taskParamSchema = taskParamsSchema.pick({ taskId: true });
 
   app.get('/tasks/:taskId/comments', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamSchema.parse(request.params);
     const query = commentListQuerySchema.parse(request.query ?? {});
 
@@ -121,7 +121,7 @@ export const registerCommentRoutes = async (app: FastifyInstance): Promise<void>
   });
 
   app.post('/tasks/:taskId/comments', async (request, reply) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamSchema.parse(request.params);
     const body = createCommentBodySchema.parse(request.body);
 

@@ -78,7 +78,7 @@ const ensureProjectAccess = async (
 
 export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> => {
   app.get('/projects/:projectId/tasks', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const query = taskListQuerySchema.parse(request.query ?? {});
 
@@ -134,7 +134,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/projects/:projectId/tasks', async (request, reply) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const body = createTaskBodySchema.parse(request.body);
 
@@ -172,7 +172,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.patch('/tasks/:taskId', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = taskParamsSchema.parse(request.params);
     const body = updateTaskBodySchema.parse(request.body ?? {});
 
@@ -226,7 +226,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/projects/:projectId/tasks/reorder', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = projectParamsSchema.pick({ projectId: true }).parse(request.params);
     const body = reorderTasksBodySchema.parse(request.body);
 

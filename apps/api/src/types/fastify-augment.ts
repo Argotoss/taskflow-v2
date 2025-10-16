@@ -9,6 +9,11 @@ declare module 'fastify' {
     jwt: fastifyJwt.JWT;
   }
 
+  interface FastifyRequest {
+    jwtVerify(): Promise<void>;
+    user: fastifyJwt.FastifyJWT['user'];
+  }
+
   interface FastifyReply {
     sendFile(_filename: string, _rootPath?: string): this;
     sendFile(_filename: string, _options?: SendOptions): this;

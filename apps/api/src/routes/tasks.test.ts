@@ -21,6 +21,9 @@ const taskRecord = {
 
 describe('task routes', () => {
   const app = buildApp();
+  const authHeaders = (): { authorization: string } => ({
+    authorization: `Bearer ${app.jwt.sign({ sub: userId, type: 'access' })}`
+  });
 
   beforeEach(async () => {
     await app.ready();
@@ -63,7 +66,7 @@ describe('task routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/projects/${projectId}/tasks`,
-      headers: { 'x-user-id': userId }
+      headers: authHeaders()
     });
 
     expect(response.statusCode).toBe(200);
@@ -77,7 +80,7 @@ describe('task routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/tasks`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         title: 'Design spec'
       }
@@ -95,7 +98,7 @@ describe('task routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/tasks/${taskRecord.id}`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         title: 'Updated'
       }
@@ -118,7 +121,7 @@ describe('task routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/projects/${projectId}/tasks/reorder`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         taskIds: [taskRecord.id]
       }

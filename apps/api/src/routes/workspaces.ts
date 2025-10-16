@@ -73,7 +73,7 @@ const toPagination = (page: number, pageSize: number): { skip: number; take: num
 
 export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<void> => {
   app.get('/workspaces', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const query = workspaceListQuerySchema.parse(request.query ?? {});
 
     const { skip, take } = toPagination(query.page, query.pageSize);
@@ -133,7 +133,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
   });
 
   app.post('/workspaces', async (request, reply) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const body = createWorkspaceBodySchema.parse(request.body);
 
     const existing = await app.prisma.workspace.findUnique({
@@ -164,7 +164,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
   });
 
   app.patch('/workspaces/:workspaceId', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = workspaceParamsSchema.parse(request.params);
     const body = updateWorkspaceBodySchema.parse(request.body ?? {});
 
@@ -194,7 +194,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
   });
 
   app.get('/workspaces/:workspaceId/members', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = workspaceParamsSchema.parse(request.params);
     const query = workspaceListQuerySchema.parse(request.query ?? paginationDefaults);
 
@@ -248,7 +248,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
   });
 
   app.post('/workspaces/:workspaceId/invite', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = workspaceParamsSchema.parse(request.params);
     const body = inviteMemberBodySchema.parse(request.body);
 

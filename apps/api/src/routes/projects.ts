@@ -38,7 +38,7 @@ export const registerProjectRoutes = async (app: FastifyInstance): Promise<void>
   const workspaceParamSchema = workspaceParamsSchema.pick({ workspaceId: true });
 
   app.get('/workspaces/:workspaceId/projects', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = workspaceParamSchema.parse(request.params);
     const query = projectListQuerySchema.parse(request.query ?? {});
 
@@ -85,7 +85,7 @@ export const registerProjectRoutes = async (app: FastifyInstance): Promise<void>
   });
 
   app.post('/workspaces/:workspaceId/projects', async (request, reply) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = workspaceParamSchema.parse(request.params);
     const body = createProjectBodySchema.parse(request.body);
 
@@ -129,7 +129,7 @@ export const registerProjectRoutes = async (app: FastifyInstance): Promise<void>
   });
 
   app.patch('/projects/:projectId', async (request) => {
-    const userId = requireUserId(request);
+    const userId = await requireUserId(request);
     const params = projectParamsSchema.parse(request.params);
     const body = updateProjectBodySchema.parse(request.body ?? {});
 

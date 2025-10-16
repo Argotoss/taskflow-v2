@@ -1,17 +1,22 @@
 import { z } from 'zod';
 import type { FastifyRequest } from 'fastify';
 
-const headerSchema = z.object({
-  userId: z.string().uuid({ message: 'User identifier is required' })
+const payloadSchema = z.object({
+  sub: z.string().uuid()
 });
 
-export const requireUserId = (request: FastifyRequest): string => {
-  const headerValue = request.headers['x-user-id'];
-  const parsed = headerSchema.safeParse({ userId: headerValue });
-
-  if (!parsed.success) {
-    throw request.server.httpErrors.unauthorized('Missing or invalid user context');
+export const requireUserId = async (request: FastifyRequest): Promise<string> => {
+  try {
+    await request.jwtVerify();
+  } catch {
+    throw request.server.httpErrors.unauthorized('Authentication required');
   }
 
-  return parsed.data.userId;
+  const parsed = payloadSchema.safeParse(request.user);
+
+  if (!parsed.success) {
+    throw request.server.httpErrors.unauthorized('Invalid authentication context');
+  }
+
+  return parsed.data.sub;
 };

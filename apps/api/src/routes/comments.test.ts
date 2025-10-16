@@ -14,6 +14,9 @@ const taskStub = {
 
 describe('comment routes', () => {
   const app = buildApp();
+  const authHeaders = (): { authorization: string } => ({
+    authorization: `Bearer ${app.jwt.sign({ sub: userId, type: 'access' })}`
+  });
 
   beforeEach(async () => {
     await app.ready();
@@ -58,7 +61,7 @@ describe('comment routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/tasks/${taskId}/comments`,
-      headers: { 'x-user-id': userId }
+      headers: authHeaders()
     });
 
     expect(response.statusCode).toBe(200);
@@ -85,7 +88,7 @@ describe('comment routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/tasks/${taskId}/comments`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         body: 'Ship it'
       }

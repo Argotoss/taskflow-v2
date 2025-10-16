@@ -19,6 +19,9 @@ const projectRecord = {
 
 describe('project routes', () => {
   const app = buildApp();
+  const authHeaders = (): { authorization: string } => ({
+    authorization: `Bearer ${app.jwt.sign({ sub: userId, type: 'access' })}`
+  });
 
   beforeEach(async () => {
     await app.ready();
@@ -36,7 +39,7 @@ describe('project routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/workspaces/${workspaceId}/projects`,
-      headers: { 'x-user-id': userId }
+      headers: authHeaders()
     });
 
     expect(response.statusCode).toBe(200);
@@ -51,7 +54,7 @@ describe('project routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/workspaces/${workspaceId}/projects`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         name: 'Team Portal',
         key: 'PORTAL'
@@ -69,7 +72,7 @@ describe('project routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/workspaces/${workspaceId}/projects`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         name: 'Team Portal',
         key: 'PORTAL'
@@ -87,7 +90,7 @@ describe('project routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/projects/${projectRecord.id}`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         name: 'Portal V2'
       }
@@ -103,7 +106,7 @@ describe('project routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/projects/${projectRecord.id}`,
-      headers: { 'x-user-id': userId },
+      headers: authHeaders(),
       payload: {
         name: 'Portal V2'
       }

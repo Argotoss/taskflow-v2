@@ -16,6 +16,9 @@ const workspaceRecord = {
 
 describe('workspace routes', () => {
   const app = buildApp();
+  const authHeaders = (): { authorization: string } => ({
+    authorization: `Bearer ${app.jwt.sign({ sub: userId, type: 'access' })}`
+  });
 
   beforeEach(async () => {
     await app.ready();
@@ -37,9 +40,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: '/workspaces',
-      headers: {
-        'x-user-id': userId
-      }
+      headers: authHeaders()
     });
 
     expect(response.statusCode).toBe(200);
@@ -55,9 +56,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/workspaces',
-      headers: {
-        'x-user-id': userId
-      },
+      headers: authHeaders(),
       payload: {
         name: 'Demo Workspace',
         slug: 'demo-workspace'
@@ -74,9 +73,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/workspaces',
-      headers: {
-        'x-user-id': userId
-      },
+      headers: authHeaders(),
       payload: {
         name: 'Demo Workspace',
         slug: 'demo-workspace'
@@ -104,9 +101,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/workspaces/${workspaceRecord.id}`,
-      headers: {
-        'x-user-id': userId
-      },
+      headers: authHeaders(),
       payload: {
         name: 'Updated Workspace'
       }
@@ -122,9 +117,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'PATCH',
       url: `/workspaces/${workspaceRecord.id}`,
-      headers: {
-        'x-user-id': userId
-      },
+      headers: authHeaders(),
       payload: {
         name: 'Updated Workspace'
       }
@@ -165,9 +158,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'GET',
       url: `/workspaces/${workspaceRecord.id}/members`,
-      headers: {
-        'x-user-id': userId
-      }
+      headers: authHeaders()
     });
 
     expect(response.statusCode).toBe(200);
@@ -199,9 +190,7 @@ describe('workspace routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: `/workspaces/${workspaceRecord.id}/invite`,
-      headers: {
-        'x-user-id': userId
-      },
+      headers: authHeaders(),
       payload: {
         email: 'new.user@taskflow.app',
         role: 'CONTRIBUTOR'
