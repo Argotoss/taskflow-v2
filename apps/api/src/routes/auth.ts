@@ -1,5 +1,4 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { z } from 'zod';
 import {
   forgotPasswordBodySchema,
   loginBodySchema,
@@ -7,68 +6,14 @@ import {
   refreshBodySchema,
   refreshResponseSchema,
   registerBodySchema,
-  resetPasswordBodySchema,
-  userDetailSchema
+  resetPasswordBodySchema
 } from '@taskflow/types';
 import { hashPassword, verifyPassword } from '../modules/auth/hash.js';
 import { TokenService, type TokenContext } from '../modules/auth/tokens.js';
 import { requireUserId } from '../utils/current-user.js';
 import { clearRefreshTokenCookie, refreshTokenCookieName, setRefreshTokenCookie } from '../utils/refresh-cookie.js';
+import { serializeUser } from '../utils/serialize-user.js';
 import { environment } from '../config/environment.js';
-
-type UserDetail = z.infer<typeof userDetailSchema>;
-
-type NotificationPreferenceShape = {
-  emailMentions: boolean;
-  emailTaskUpdates: boolean;
-  inAppMentions: boolean;
-  inAppTaskUpdates: boolean;
-};
-
-const defaultNotificationPreferences: NotificationPreferenceShape = {
-  emailMentions: true,
-  emailTaskUpdates: true,
-  inAppMentions: true,
-  inAppTaskUpdates: true
-};
-
-const toNotificationPreferences = (
-  preference: { emailMentions: boolean; emailTaskUpdates: boolean; inAppMentions: boolean; inAppTaskUpdates: boolean } | null | undefined
-): NotificationPreferenceShape => {
-  if (!preference) {
-    return defaultNotificationPreferences;
-  }
-
-  return {
-    emailMentions: preference.emailMentions,
-    emailTaskUpdates: preference.emailTaskUpdates,
-    inAppMentions: preference.inAppMentions,
-    inAppTaskUpdates: preference.inAppTaskUpdates
-  };
-};
-
-const serializeUser = (
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    avatarUrl: string | null | undefined;
-    timezone: string | null | undefined;
-    createdAt: Date;
-    updatedAt: Date;
-  },
-  preference: NotificationPreferenceShape | null | undefined
-): UserDetail =>
-  userDetailSchema.parse({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    avatarUrl: user.avatarUrl ?? null,
-    timezone: user.timezone ?? null,
-    createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString(),
-    notificationPreferences: toNotificationPreferences(preference)
-  });
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
 

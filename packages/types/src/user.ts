@@ -22,6 +22,14 @@ export const userDetailSchema = userSummarySchema.extend({
   notificationPreferences: notificationPreferenceSchema
 });
 
+export const updateProfileBodySchema = z.object({
+  name: z.string().min(1).optional(),
+  timezone: z.string().min(1).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+  notificationPreferences: notificationPreferenceSchema.partial().optional()
+});
+
 export type UserSummary = z.infer<typeof userSummarySchema>;
 export type UserDetail = z.infer<typeof userDetailSchema>;
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
+export type UpdateProfileBody = z.infer<typeof updateProfileBodySchema>;
