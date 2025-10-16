@@ -14,7 +14,8 @@ export default [
   js.configs.recommended,
   {
     files: [
-      '**/*.ts'
+      '**/*.ts',
+      '**/*.tsx'
     ],
     languageOptions: {
       parser: tsParser,
@@ -57,6 +58,19 @@ export default [
     }
   }
   ,
+  {
+    files: [
+      'apps/web/src/**/*.ts',
+      'apps/web/src/**/*.tsx'
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        ...globals.vitest
+      }
+    }
+  },
   {
     files: [
       '**/*.d.ts'

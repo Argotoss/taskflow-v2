@@ -51,3 +51,12 @@ export const invitePreviewResponseSchema = z.object({
   invitedEmail: emailSchema,
   role: membershipRoleSchema
 });
+
+export type RegisterBody = z.infer<typeof registerBodySchema>;
+export type LoginBody = z.infer<typeof loginBodySchema>;
+export type AuthTokens = z.infer<typeof authTokensSchema>;
+export type LoginResponse = z.infer<typeof loginResponseSchema>;
+export type RefreshBody = z.infer<typeof refreshBodySchema>;
+export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
+export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
+export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;

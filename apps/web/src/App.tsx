@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+import AuthPanel from './auth/components/AuthPanel.js';
 import './styles.css';
 
 const metrics = [
@@ -8,22 +10,25 @@ const metrics = [
 
 const App = (): JSX.Element => (
   <div className="page">
-    <header className="hero">
-      <span className="badge">Taskflow platform</span>
-      <h1>Bring clarity to complex work.</h1>
-      <p>
-        Taskflow orchestrates projects, tasks, and teams so you can ship faster with confidence.
-        The full experience is coming online shortly&mdash;for now, explore the mission and stay tuned.
-      </p>
-      <div className="cta-row">
-        <a className="primary" href="mailto:hello@taskflow.app">
-          Request early access
-        </a>
-        <a className="ghost" href="#roadmap">
-          View product vision
-        </a>
-      </div>
-    </header>
+    <div className="layout">
+      <header className="hero">
+        <span className="badge">Taskflow platform</span>
+        <h1>Bring clarity to complex work.</h1>
+        <p>
+          Taskflow orchestrates projects, tasks, and teams so you can ship faster with confidence.
+          The full experience is coming online shortly&mdash;for now, explore the mission and stay tuned.
+        </p>
+        <div className="cta-row">
+          <a className="primary" href="mailto:hello@taskflow.app">
+            Request early access
+          </a>
+          <a className="ghost" href="#roadmap">
+            View product vision
+          </a>
+        </div>
+      </header>
+      <AuthPanel />
+    </div>
 
     <section className="metrics">
       {metrics.map((metric) => (
@@ -43,8 +48,8 @@ const App = (): JSX.Element => (
         <li>Analytics and insights that help teams unblock work.</li>
       </ol>
       <p className="footnote">
-        This preview is deployed straight from our CI/CD pipeline. Every push to <code>main</code> rebuilds
-        the API and web client so you&apos;ll always see the latest iteration.
+        This preview is deployed straight from our CI/CD pipeline. Every push to <code>main</code> rebuilds the API
+        and web client so you&apos;ll always see the latest iteration.
       </p>
     </section>
   </div>
