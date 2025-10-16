@@ -25,7 +25,7 @@ export const loginResponseSchema = z.object({
 });
 
 export const refreshBodySchema = z.object({
-  refreshToken: z.string()
+  refreshToken: z.string().optional()
 });
 
 export const refreshResponseSchema = authTokensSchema;

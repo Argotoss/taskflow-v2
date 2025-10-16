@@ -4,6 +4,7 @@ import sensible from '@fastify/sensible';
 import cookiePlugin from './plugins/cookie.js';
 import jwtPlugin from './plugins/jwt.js';
 import prismaPlugin from './plugins/prisma.js';
+import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerWorkspaceRoutes } from './routes/workspaces.js';
 import { registerProjectRoutes } from './routes/projects.js';
@@ -19,6 +20,7 @@ export const buildApp = (): FastifyInstance => {
   void app.register(cookiePlugin);
   void app.register(jwtPlugin);
   void app.register(prismaPlugin);
+  app.register(registerAuthRoutes);
   app.register(registerHealthRoutes, { prefix: '/health' });
   app.register(registerWorkspaceRoutes);
   app.register(registerProjectRoutes);
