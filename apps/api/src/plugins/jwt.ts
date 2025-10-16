@@ -14,7 +14,7 @@ export default fp(async (app: FastifyInstance) => {
   await app.register(jwt, {
     secret: environment.JWT_SECRET,
     sign: {
-      expiresIn: environment.JWT_EXPIRES_IN
+      expiresIn: environment.JWT_EXPIRES_IN_SECONDS
     }
   });
 });
