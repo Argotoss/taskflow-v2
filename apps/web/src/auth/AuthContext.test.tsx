@@ -43,7 +43,13 @@ describe('AuthProvider', () => {
         avatarUrl: null,
         timezone: null,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        notificationPreferences: {
+          emailMentions: true,
+          emailTaskUpdates: true,
+          inAppMentions: true,
+          inAppTaskUpdates: true
+        }
       },
       tokens: {
         accessToken: 'access-token',
@@ -72,7 +78,13 @@ describe('AuthProvider', () => {
         avatarUrl: null,
         timezone: null,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        notificationPreferences: {
+          emailMentions: true,
+          emailTaskUpdates: true,
+          inAppMentions: true,
+          inAppTaskUpdates: true
+        }
       },
       tokens: {
         accessToken: 'token',

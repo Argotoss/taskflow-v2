@@ -8,11 +8,20 @@ export const userSummarySchema = z.object({
   avatarUrl: z.string().url().nullable()
 });
 
+export const notificationPreferenceSchema = z.object({
+  emailMentions: z.boolean(),
+  emailTaskUpdates: z.boolean(),
+  inAppMentions: z.boolean(),
+  inAppTaskUpdates: z.boolean()
+});
+
 export const userDetailSchema = userSummarySchema.extend({
   timezone: z.string().nullable(),
   createdAt: isoDateTimeSchema,
-  updatedAt: isoDateTimeSchema
+  updatedAt: isoDateTimeSchema,
+  notificationPreferences: notificationPreferenceSchema
 });
 
 export type UserSummary = z.infer<typeof userSummarySchema>;
 export type UserDetail = z.infer<typeof userDetailSchema>;
+export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;

@@ -45,7 +45,13 @@ describe('auth routes', () => {
       avatarUrl: null,
       timezone: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      notificationPreference: {
+        emailMentions: true,
+        emailTaskUpdates: true,
+        inAppMentions: true,
+        inAppTaskUpdates: true
+      }
     }));
 
     const response = await app.inject({
@@ -68,6 +74,7 @@ describe('auth routes', () => {
     expect(cookieHeader).toContain(`${refreshCookieName}=`);
     const body = response.json();
     expect(body.tokens.refreshToken).toBe(mockTokens.refreshToken);
+    expect(body.user.notificationPreferences.emailMentions).toBe(true);
   });
 
   it('rejects registration when email already exists', async () => {
@@ -79,7 +86,8 @@ describe('auth routes', () => {
       avatarUrl: null,
       timezone: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      notificationPreference: null
     });
 
     const response = await app.inject({
@@ -97,13 +105,28 @@ describe('auth routes', () => {
 
   it('logs in with valid credentials', async () => {
     const passwordHash = await hashPassword('ComplexPass123!');
-    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue({
+    const notificationPreference = {
+      emailMentions: true,
+      emailTaskUpdates: false,
+      inAppMentions: true,
+      inAppTaskUpdates: false
+    };
+
+    const findUniqueSpy = vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue({
       id: demoUserId,
       email: 'user@taskflow.app',
       passwordHash,
       name: 'Demo User',
       avatarUrl: null,
       timezone: null,
+      createdAt: now,
+      updatedAt: now,
+      notificationPreference
+    });
+    const preferenceCreateSpy = vi.spyOn(app.prisma.notificationPreference, 'create').mockResolvedValue({
+      id: 'pref-1',
+      userId: demoUserId,
+      ...notificationPreference,
       createdAt: now,
       updatedAt: now
     });
@@ -123,6 +146,55 @@ describe('auth routes', () => {
     const cookieHeader = Array.isArray(setCookie) ? setCookie.join(';') : setCookie;
     expect(cookieHeader).toContain(`${refreshCookieName}=`);
     expect(response.json().tokens.accessToken).toBe(mockTokens.accessToken);
+    expect(response.json().user.notificationPreferences.emailMentions).toBe(true);
+    expect(preferenceCreateSpy).not.toHaveBeenCalled();
+
+    // Ensure include argument was provided
+    expect(findUniqueSpy).toHaveBeenCalledWith({
+      where: { email: 'user@taskflow.app' },
+      include: { notificationPreference: true }
+    });
+  });
+
+  it('creates notification preferences when absent during login', async () => {
+    const passwordHash = await hashPassword('ComplexPass123!');
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue({
+      id: demoUserId,
+      email: 'user@taskflow.app',
+      passwordHash,
+      name: 'Demo User',
+      avatarUrl: null,
+      timezone: null,
+      createdAt: now,
+      updatedAt: now,
+      notificationPreference: null
+    });
+
+    const preferenceCreateSpy = vi.spyOn(app.prisma.notificationPreference, 'create').mockResolvedValue({
+      id: 'pref-2',
+      userId: demoUserId,
+      emailMentions: true,
+      emailTaskUpdates: true,
+      inAppMentions: true,
+      inAppTaskUpdates: true,
+      createdAt: now,
+      updatedAt: now
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: {
+        email: 'user@taskflow.app',
+        password: 'ComplexPass123!'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(preferenceCreateSpy).toHaveBeenCalledWith({ data: { userId: demoUserId } });
+    const body = response.json();
+    expect(body.user).toBeDefined();
+    expect(body.user.notificationPreferences.emailMentions).toBe(true);
   });
 
   it('rejects invalid login attempts', async () => {
@@ -215,7 +287,8 @@ describe('auth routes', () => {
       avatarUrl: null,
       timezone: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      notificationPreference: null
     });
 
     const createResetSpy = TokenService.prototype.createPasswordResetToken as unknown as vi.Mock;

@@ -18,15 +18,47 @@ import { environment } from '../config/environment.js';
 
 type UserDetail = z.infer<typeof userDetailSchema>;
 
-const serializeUser = (user: {
-  id: string;
-  email: string;
-  name: string;
-  avatarUrl: string | null | undefined;
-  timezone: string | null | undefined;
-  createdAt: Date;
-  updatedAt: Date;
-}): UserDetail =>
+type NotificationPreferenceShape = {
+  emailMentions: boolean;
+  emailTaskUpdates: boolean;
+  inAppMentions: boolean;
+  inAppTaskUpdates: boolean;
+};
+
+const defaultNotificationPreferences: NotificationPreferenceShape = {
+  emailMentions: true,
+  emailTaskUpdates: true,
+  inAppMentions: true,
+  inAppTaskUpdates: true
+};
+
+const toNotificationPreferences = (
+  preference: { emailMentions: boolean; emailTaskUpdates: boolean; inAppMentions: boolean; inAppTaskUpdates: boolean } | null | undefined
+): NotificationPreferenceShape => {
+  if (!preference) {
+    return defaultNotificationPreferences;
+  }
+
+  return {
+    emailMentions: preference.emailMentions,
+    emailTaskUpdates: preference.emailTaskUpdates,
+    inAppMentions: preference.inAppMentions,
+    inAppTaskUpdates: preference.inAppTaskUpdates
+  };
+};
+
+const serializeUser = (
+  user: {
+    id: string;
+    email: string;
+    name: string;
+    avatarUrl: string | null | undefined;
+    timezone: string | null | undefined;
+    createdAt: Date;
+    updatedAt: Date;
+  },
+  preference: NotificationPreferenceShape | null | undefined
+): UserDetail =>
   userDetailSchema.parse({
     id: user.id,
     email: user.email,
@@ -34,7 +66,8 @@ const serializeUser = (user: {
     avatarUrl: user.avatarUrl ?? null,
     timezone: user.timezone ?? null,
     createdAt: user.createdAt.toISOString(),
-    updatedAt: user.updatedAt.toISOString()
+    updatedAt: user.updatedAt.toISOString(),
+    notificationPreferences: toNotificationPreferences(preference)
   });
 
 const normalizeEmail = (email: string): string => email.trim().toLowerCase();
@@ -64,7 +97,13 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       data: {
         email,
         passwordHash,
-        name: body.name
+        name: body.name,
+        notificationPreference: {
+          create: {}
+        }
+      },
+      include: {
+        notificationPreference: true
       }
     });
 
@@ -73,7 +112,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     reply.code(201);
     return loginResponseSchema.parse({
-      user: serializeUser(user),
+      user: serializeUser(user, user.notificationPreference),
       tokens: session
     });
   });
@@ -82,7 +121,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     const body = loginBodySchema.parse(request.body);
     const email = normalizeEmail(body.email);
 
-    const user = await app.prisma.user.findUnique({ where: { email } });
+    const user = await app.prisma.user.findUnique({
+      where: { email },
+      include: {
+        notificationPreference: true
+      }
+    });
     if (!user) {
       throw app.httpErrors.unauthorized('Invalid credentials');
     }
@@ -92,11 +136,17 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       throw app.httpErrors.unauthorized('Invalid credentials');
     }
 
+    const preference =
+      user.notificationPreference ??
+      (await app.prisma.notificationPreference.create({
+        data: { userId: user.id }
+      }));
+
     const session = await tokens.createSession(user.id, buildContext(request));
     setRefreshTokenCookie(reply, session.refreshToken);
 
     return loginResponseSchema.parse({
-      user: serializeUser(user),
+      user: serializeUser(user, preference),
       tokens: session
     });
   });
