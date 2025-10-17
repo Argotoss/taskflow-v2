@@ -518,6 +518,32 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "PORT"
           value = tostring(var.container_port)
+        },
+        {
+          name  = "AWS_REGION"
+          value = var.aws_region
+        },
+        {
+          name  = "ATTACHMENTS_BUCKET"
+          value = aws_s3_bucket.attachments.bucket
+        },
+        {
+          name  = "REFRESH_TOKEN_TTL_DAYS"
+          value = tostring(var.refresh_token_ttl_days)
+        },
+        {
+          name  = "RESET_PASSWORD_TOKEN_TTL_MINUTES"
+          value = tostring(var.reset_password_token_ttl_minutes)
+        }
+      ]
+      secrets = [
+        {
+          name      = "JWT_SECRET"
+          valueFrom = var.jwt_secret_ssm_parameter
+        },
+        {
+          name      = "DATABASE_URL"
+          valueFrom = var.database_url_ssm_parameter
         }
       ]
     }

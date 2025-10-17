@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  quality-gate:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,8 +25,45 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm run test
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        workspace: ['@taskflow/api', '@taskflow/web', '@taskflow/config']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build API
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.11.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test --workspace ${{ matrix.workspace }}
+
+  build:
+    needs:
+      - lint
+      - test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.11.1
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
         run: npm run build

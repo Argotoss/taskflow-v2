@@ -3,11 +3,13 @@ import type * as fastifyJwt from '@fastify/jwt';
 import type { HttpErrors } from '@fastify/sensible';
 import type { SendOptions } from '@fastify/static';
 import type { CookieSerializeOptions } from '@fastify/cookie';
+import type { PrismaClient } from '@taskflow/db';
 
 declare module 'fastify' {
   interface FastifyInstance {
     httpErrors: HttpErrors;
     jwt: fastifyJwt.JWT;
+    prisma: PrismaClient;
   }
 
   interface FastifyRequest {

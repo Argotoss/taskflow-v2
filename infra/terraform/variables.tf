@@ -99,3 +99,25 @@ variable "s3_enforce_tls" {
   type        = bool
   default     = true
 }
+
+variable "jwt_secret_ssm_parameter" {
+  description = "ARN of the SSM parameter storing the JWT signing secret."
+  type        = string
+}
+
+variable "database_url_ssm_parameter" {
+  description = "ARN of the SSM parameter storing the application database connection string."
+  type        = string
+}
+
+variable "refresh_token_ttl_days" {
+  description = "Refresh token lifetime in days exposed to the API."
+  type        = number
+  default     = 30
+}
+
+variable "reset_password_token_ttl_minutes" {
+  description = "Reset password token lifetime in minutes exposed to the API."
+  type        = number
+  default     = 60
+}
