@@ -259,6 +259,13 @@ h1 {
   color: rgba(226, 232, 240, 0.85);
 }
 
+.auth-form__field fieldset,
+.auth-form__field legend {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
 .auth-form__field input {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 0.75rem;
@@ -272,6 +279,19 @@ h1 {
   outline: none;
   border-color: rgba(59, 130, 246, 0.65);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.auth-form__checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.auth-form__checkbox input {
+  width: 1rem;
+  height: 1rem;
 }
 
 @media (max-width: 640px) {

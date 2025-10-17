@@ -1,5 +1,24 @@
-import { loginResponseSchema, refreshResponseSchema, forgotPasswordBodySchema, resetPasswordBodySchema, registerBodySchema, loginBodySchema } from '@taskflow/types';
-import type { AuthTokens, LoginResponse, ResetPasswordBody, RefreshResponse, ForgotPasswordBody, RegisterBody, LoginBody } from '@taskflow/types';
+import {
+  loginResponseSchema,
+  refreshResponseSchema,
+  forgotPasswordBodySchema,
+  resetPasswordBodySchema,
+  registerBodySchema,
+  loginBodySchema,
+  profileResponseSchema,
+  updateProfileBodySchema
+} from '@taskflow/types';
+import type {
+  AuthTokens,
+  LoginResponse,
+  ResetPasswordBody,
+  RefreshResponse,
+  ForgotPasswordBody,
+  RegisterBody,
+  LoginBody,
+  UpdateProfileBody,
+  UserDetail
+} from '@taskflow/types';
 import { z } from 'zod';
 
 class ApiError extends Error {
@@ -127,6 +146,28 @@ export const authApi = {
       method: 'POST',
       body: serializeBody(body)
     });
+  },
+  async profile(accessToken: string | null): Promise<UserDetail> {
+    if (!accessToken) {
+      throw new ApiError('Authentication required', 401);
+    }
+    const response = await buildRequest('/auth/me', {
+      method: 'GET',
+      headers: authorizationHeaders(accessToken)
+    }, profileResponseSchema);
+    return response.user;
+  },
+  async updateProfile(accessToken: string | null, payload: UpdateProfileBody): Promise<UserDetail> {
+    if (!accessToken) {
+      throw new ApiError('Authentication required', 401);
+    }
+    const body = updateProfileBodySchema.parse(payload);
+    const response = await buildRequest('/auth/me', {
+      method: 'PATCH',
+      headers: authorizationHeaders(accessToken),
+      body: serializeBody(body)
+    }, profileResponseSchema);
+    return response.user;
   }
 };
 

@@ -14,7 +14,9 @@ const mockAuthApi = vi.hoisted(() => ({
   logout: vi.fn(),
   refresh: vi.fn(),
   requestPasswordReset: vi.fn(),
-  resetPassword: vi.fn()
+  resetPassword: vi.fn(),
+  profile: vi.fn(),
+  updateProfile: vi.fn()
 }));
 
 vi.mock('./authApi.ts', () => ({
@@ -29,13 +31,14 @@ vi.mock('./authApi.ts', () => ({
 }));
 
 describe('AuthProvider', () => {
+  let loginResponse: LoginResponse;
   const wrapper = ({ children }: { children: ReactNode }): JSX.Element => <AuthProvider>{children}</AuthProvider>;
 
   beforeEach(() => {
     cleanup();
     vi.restoreAllMocks();
     Object.values(mockAuthApi).forEach((fn) => fn.mockReset());
-    const loginResponse: LoginResponse = {
+    loginResponse = {
       user: {
         id: randomUUID(),
         email: 'ava@taskflow.app',
@@ -64,6 +67,11 @@ describe('AuthProvider', () => {
     mockAuthApi.register.mockResolvedValue(loginResponse);
     mockAuthApi.requestPasswordReset.mockResolvedValue(undefined);
     mockAuthApi.resetPassword.mockResolvedValue(undefined);
+    mockAuthApi.profile.mockResolvedValue(loginResponse.user);
+    mockAuthApi.updateProfile.mockResolvedValue({
+      ...loginResponse.user,
+      name: 'Updated Name'
+    });
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear();
     }
@@ -112,6 +120,7 @@ describe('AuthProvider', () => {
       expect(result.current.session).not.toBeNull();
     });
 
+    expect(mockAuthApi.profile).toHaveBeenCalled();
     expect(result.current.user?.email).toBe('ava@taskflow.app');
   });
 
@@ -134,5 +143,27 @@ describe('AuthProvider', () => {
     expect(mockAuthApi.logout).toHaveBeenCalledWith('access-token', 'refresh-token');
     expect(result.current.user).toBeNull();
     expect(window.localStorage.getItem('taskflow.session')).toBeNull();
+  });
+
+  it('updates profile data', async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    await waitFor(() => expect(result.current.ready).toBe(true));
+
+    await act(async () => {
+      await result.current.login({ email: 'ava@taskflow.app', password: 'ComplexPass123!' });
+    });
+
+    mockAuthApi.profile.mockResolvedValue({
+      ...loginResponse.user,
+      name: 'Updated Name'
+    });
+
+    await act(async () => {
+      await result.current.updateProfile({ name: 'Updated Name' });
+    });
+
+    expect(mockAuthApi.updateProfile).toHaveBeenCalledWith('access-token', { name: 'Updated Name' });
+    await waitFor(() => expect(result.current.user?.name).toBe('Updated Name'));
   });
 });

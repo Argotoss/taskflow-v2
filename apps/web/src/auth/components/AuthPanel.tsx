@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent, JSX } from 'react';
+import type { UpdateProfileBody } from '@taskflow/types';
 import { useAuth } from '../useAuth.js';
 import { ApiError } from '../authApi.js';
+import ProfileForm from './ProfileForm.js';
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
 
@@ -38,6 +40,9 @@ const AuthPanel = (): JSX.Element => {
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '' });
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetForm, setResetForm] = useState({ password: '', confirm: '' });
+  const [profileError, setProfileError] = useState('');
+  const [profileStatus, setProfileStatus] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
 
   const clearFeedback = (): void => {
     setError('');
@@ -117,6 +122,32 @@ const AuthPanel = (): JSX.Element => {
     }
   };
 
+  const handleProfileSubmit = async (changes: UpdateProfileBody): Promise<void> => {
+    setProfileError('');
+    setProfileStatus('');
+
+    if (Object.keys(changes).length === 0) {
+      setProfileStatus('No changes to save');
+      return;
+    }
+
+    setProfileSaving(true);
+    try {
+      await auth.updateProfile(changes);
+      setProfileStatus('Profile updated');
+    } catch (exception) {
+      setProfileError(exception instanceof ApiError ? exception.message : 'Unable to update profile');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSignOut = async (): Promise<void> => {
+    setProfileError('');
+    setProfileStatus('');
+    await auth.logout();
+  };
+
   if (!auth.ready) {
     return (
       <aside className="auth-card">
@@ -129,9 +160,19 @@ const AuthPanel = (): JSX.Element => {
   if (auth.user) {
     return (
       <aside className="auth-card">
-        <h2>Welcome back</h2>
-        <p className="auth-card__subtitle">Signed in as {auth.user.name}</p>
-        <button className="auth-card__primary" type="button" onClick={() => { clearFeedback(); void auth.logout(); }}>
+        <h2>Account</h2>
+        <p className="auth-card__subtitle">Signed in as {auth.user.email}</p>
+        {profileError && <div className="auth-card__error">{profileError}</div>}
+        {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
+        <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
+        <button
+          className="auth-card__link"
+          type="button"
+          onClick={() => {
+            clearFeedback();
+            void handleSignOut();
+          }}
+        >
           Sign out
         </button>
       </aside>

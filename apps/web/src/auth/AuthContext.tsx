@@ -2,7 +2,15 @@ import { createContext, useCallback, useEffect, useMemo, useRef, useState } from
 import type { PropsWithChildren, JSX } from 'react';
 import { z } from 'zod';
 import { authTokensSchema, userDetailSchema } from '@taskflow/types';
-import type { LoginBody, RegisterBody, ForgotPasswordBody, ResetPasswordBody, LoginResponse } from '@taskflow/types';
+import type {
+  LoginBody,
+  RegisterBody,
+  ForgotPasswordBody,
+  ResetPasswordBody,
+  LoginResponse,
+  UpdateProfileBody,
+  UserDetail
+} from '@taskflow/types';
 import { authApi, ApiError } from './authApi.js';
 
 const storedSessionSchema = z.object({
@@ -13,16 +21,17 @@ const storedSessionSchema = z.object({
 type StoredSession = z.infer<typeof storedSessionSchema>;
 
 /* eslint-disable @typescript-eslint/no-unused-vars, no-unused-vars */
-type AuthContextValue = {
-  user: z.infer<typeof userDetailSchema> | null;
+interface AuthContextValue {
+  user: UserDetail | null;
   ready: boolean;
   session: StoredSession | null;
-  login(credentials: LoginBody): Promise<void>;
-  register(details: RegisterBody): Promise<void>;
-  logout(): Promise<void>;
-  requestPasswordReset(email: ForgotPasswordBody['email']): Promise<void>;
-  resetPassword(input: ResetPasswordBody): Promise<void>;
-};
+  login: (credentials: LoginBody) => Promise<void>;
+  register: (details: RegisterBody) => Promise<void>;
+  logout: () => Promise<void>;
+  requestPasswordReset: (email: ForgotPasswordBody['email']) => Promise<void>;
+  resetPassword: (input: ResetPasswordBody) => Promise<void>;
+  updateProfile: (changes: UpdateProfileBody) => Promise<void>;
+}
 /* eslint-enable @typescript-eslint/no-unused-vars, no-unused-vars */
 
 const storageKey = 'taskflow.session';
@@ -76,6 +85,20 @@ const expiryTime = (session: StoredSession): number => session.tokens.issuedAt +
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const usersEqual = (current: UserDetail, next: UserDetail): boolean => {
+  return (
+    current.name === next.name &&
+    current.email === next.email &&
+    current.avatarUrl === next.avatarUrl &&
+    current.timezone === next.timezone &&
+    current.updatedAt === next.updatedAt &&
+    current.notificationPreferences.emailMentions === next.notificationPreferences.emailMentions &&
+    current.notificationPreferences.emailTaskUpdates === next.notificationPreferences.emailTaskUpdates &&
+    current.notificationPreferences.inAppMentions === next.notificationPreferences.inAppMentions &&
+    current.notificationPreferences.inAppTaskUpdates === next.notificationPreferences.inAppTaskUpdates
+  );
+};
+
 const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
   const [session, setSession] = useState<StoredSession | null>(null);
   const [ready, setReady] = useState(false);
@@ -93,6 +116,23 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
   const applySession = useCallback((next: StoredSession) => {
     setSession(next);
     persistSession(next);
+  }, []);
+
+  const replaceUser = useCallback((user: UserDetail) => {
+    setSession((current) => {
+      if (!current) {
+        return current;
+      }
+      if (usersEqual(current.user, user)) {
+        return current;
+      }
+      const next: StoredSession = {
+        user,
+        tokens: current.tokens
+      };
+      persistSession(next);
+      return next;
+    });
   }, []);
 
   const clearSession = useCallback(() => {
@@ -180,6 +220,53 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
     clearSession();
   }, [clearSession]);
 
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadProfile = async (): Promise<void> => {
+      try {
+        const profile = await authApi.profile(session.tokens.accessToken);
+        if (!cancelled) {
+          replaceUser(profile);
+        }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          clearSession();
+        }
+      }
+    };
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clearSession, replaceUser, session]);
+
+  const updateProfile = useCallback(
+    async (changes: UpdateProfileBody): Promise<void> => {
+      const current = session;
+      if (!current) {
+        throw new ApiError('Authentication required', 401);
+      }
+
+      try {
+        const updated = await authApi.updateProfile(current.tokens.accessToken, changes);
+        replaceUser(updated);
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          clearSession();
+        }
+        throw error;
+      }
+    },
+    [clearSession, replaceUser, session]
+  );
+
   const value = useMemo<AuthContextValue>(() => ({
     user: session?.user ?? null,
     ready,
@@ -188,8 +275,9 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
     register,
     logout,
     requestPasswordReset,
-    resetPassword
-  }), [login, logout, ready, register, requestPasswordReset, resetPassword, session]);
+    resetPassword,
+    updateProfile
+  }), [login, logout, ready, register, requestPasswordReset, resetPassword, session, updateProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

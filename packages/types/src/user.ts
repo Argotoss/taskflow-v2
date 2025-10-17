@@ -29,7 +29,12 @@ export const updateProfileBodySchema = z.object({
   notificationPreferences: notificationPreferenceSchema.partial().optional()
 });
 
+export const profileResponseSchema = z.object({
+  user: userDetailSchema
+});
+
 export type UserSummary = z.infer<typeof userSummarySchema>;
 export type UserDetail = z.infer<typeof userDetailSchema>;
 export type NotificationPreference = z.infer<typeof notificationPreferenceSchema>;
 export type UpdateProfileBody = z.infer<typeof updateProfileBodySchema>;
+export type ProfileResponse = z.infer<typeof profileResponseSchema>;
