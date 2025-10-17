@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
+import { buildNotificationPreference, buildUser } from '../testing/user.js';
 
 const userId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -19,21 +20,23 @@ describe('profile routes', () => {
   });
 
   it('returns the current user profile', async () => {
-    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue({
-      id: userId,
-      email: 'ava@taskflow.app',
-      name: 'Ava Stewart',
-      avatarUrl: null,
-      timezone: 'UTC',
-      createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2024-01-02T00:00:00.000Z'),
-      notificationPreference: {
-        emailMentions: true,
-        emailTaskUpdates: false,
-        inAppMentions: true,
-        inAppTaskUpdates: true
-      }
-    });
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
+      buildUser({
+        id: userId,
+        email: 'ava@taskflow.app',
+        name: 'Ava Stewart',
+        timezone: 'UTC',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+        notificationPreference: buildNotificationPreference({
+          id: 'pref-ava',
+          userId,
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+          emailTaskUpdates: false
+        })
+      })
+    );
 
     const response = await app.inject({
       method: 'GET',
@@ -48,16 +51,17 @@ describe('profile routes', () => {
   });
 
   it('creates default preferences when missing', async () => {
-    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue({
-      id: userId,
-      email: 'ava@taskflow.app',
-      name: 'Ava Stewart',
-      avatarUrl: null,
-      timezone: null,
-      createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2024-01-02T00:00:00.000Z'),
-      notificationPreference: null
-    });
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
+      buildUser({
+        id: userId,
+        email: 'ava@taskflow.app',
+        name: 'Ava Stewart',
+        timezone: null,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+        notificationPreference: null
+      })
+    );
 
     const preferenceCreateSpy = vi.spyOn(app.prisma.notificationPreference, 'create').mockResolvedValue({
       id: 'pref-123',
@@ -82,21 +86,26 @@ describe('profile routes', () => {
   });
 
   it('updates profile fields and notification preferences', async () => {
-    const updateSpy = vi.spyOn(app.prisma.user, 'update').mockResolvedValue({
-      id: userId,
-      email: 'ava@taskflow.app',
-      name: 'Ava Updated',
-      avatarUrl: 'https://cdn.taskflow.app/avatar.png',
-      timezone: 'America/New_York',
-      createdAt: new Date('2024-01-01T00:00:00.000Z'),
-      updatedAt: new Date('2024-01-03T00:00:00.000Z'),
-      notificationPreference: {
-        emailMentions: false,
-        emailTaskUpdates: true,
-        inAppMentions: true,
-        inAppTaskUpdates: false
-      }
-    });
+    const updateSpy = vi.spyOn(app.prisma.user, 'update').mockResolvedValue(
+      buildUser({
+        id: userId,
+        email: 'ava@taskflow.app',
+        name: 'Ava Updated',
+        avatarUrl: 'https://cdn.taskflow.app/avatar.png',
+        timezone: 'America/New_York',
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-03T00:00:00.000Z'),
+        notificationPreference: buildNotificationPreference({
+          id: 'pref-ava',
+          userId,
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+          updatedAt: new Date('2024-01-03T00:00:00.000Z'),
+          emailMentions: false,
+          emailTaskUpdates: true,
+          inAppTaskUpdates: false
+        })
+      })
+    );
 
     const response = await app.inject({
       method: 'PATCH',

@@ -2,7 +2,7 @@
 import type * as fastifyJwt from '@fastify/jwt';
 import type { HttpErrors } from '@fastify/sensible';
 import type { SendOptions } from '@fastify/static';
-import type { FastifyCookieOptions } from '@fastify/cookie';
+import type { CookieSerializeOptions } from '@fastify/cookie';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -21,7 +21,7 @@ declare module 'fastify' {
     sendFile(_filename: string, _options?: SendOptions): this;
     sendFile(_filename: string, _rootPath?: string, _options?: SendOptions): this;
     notFound(message?: string): this;
-    setCookie(name: string, value: string, options?: FastifyCookieOptions): this;
-    clearCookie(name: string, options?: FastifyCookieOptions): this;
+    setCookie(name: string, value: string, options?: CookieSerializeOptions): this;
+    clearCookie(name: string, options?: CookieSerializeOptions): this;
   }
 }
