@@ -9,7 +9,8 @@
       "node",
       "@fastify/sensible",
       "@fastify/jwt",
-      "@fastify/static"
+      "@fastify/static",
+      "vitest/globals"
     ]
   },
   "include": [
