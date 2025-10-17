@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
+import { buildAttachmentWithUploader, buildMembership, buildTaskWithWorkspace } from '../testing/builders.js';
 
 const userId = '11112222-3333-4444-5555-666677778888';
 const taskId = '99990000-aaaa-bbbb-cccc-ddddeeeeffff';
 const workspaceId = 'abcdef12-3456-7890-abcd-ef1234567890';
 
-const taskStub = {
+const taskStub = buildTaskWithWorkspace({
   id: taskId,
   project: {
     workspaceId
   }
-};
+});
 
 describe('attachment routes', () => {
   const app = buildApp();
@@ -27,15 +28,10 @@ describe('attachment routes', () => {
   });
 
   const allowAccess = (): void => {
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>);
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem',
-      workspaceId,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    } as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub);
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
   };
 
   it('returns a presigned upload payload', async () => {
@@ -59,22 +55,23 @@ describe('attachment routes', () => {
 
   it('persists attachment metadata', async () => {
     allowAccess();
-    vi.spyOn(app.prisma.attachment, 'create').mockResolvedValue({
-      id: '11111111-2222-3333-4444-555555555555',
-      taskId,
-      uploaderId: userId,
-      fileName: 'design.pdf',
-      fileSize: 1024,
-      contentType: 'application/pdf',
-      storageKey: 'attachments/key',
-      createdAt: new Date(),
-      uploader: {
-        id: userId,
-        email: 'owner@taskflow.app',
-        name: 'Owner',
-        avatarUrl: null
-      }
-    } as unknown as Awaited<ReturnType<typeof app.prisma.attachment.create>>);
+    vi.spyOn(app.prisma.attachment, 'create').mockResolvedValue(
+      buildAttachmentWithUploader({
+        id: '11111111-2222-3333-4444-555555555555',
+        taskId,
+        uploaderId: userId,
+        fileName: 'design.pdf',
+        fileSize: 1024,
+        contentType: 'application/pdf',
+        storageKey: 'attachments/key',
+        uploader: {
+          id: userId,
+          email: 'owner@taskflow.app',
+          name: 'Owner',
+          avatarUrl: null
+        }
+      })
+    );
 
     const response = await app.inject({
       method: 'POST',
@@ -95,7 +92,7 @@ describe('attachment routes', () => {
   it('lists attachments for a task', async () => {
     allowAccess();
     vi.spyOn(app.prisma.attachment, 'findMany').mockResolvedValue([
-      {
+      buildAttachmentWithUploader({
         id: '11111111-2222-3333-4444-555555555555',
         taskId,
         uploaderId: userId,
@@ -103,15 +100,14 @@ describe('attachment routes', () => {
         fileSize: 1024,
         contentType: 'application/pdf',
         storageKey: 'attachments/key',
-        createdAt: new Date(),
         uploader: {
           id: userId,
           email: 'owner@taskflow.app',
           name: 'Owner',
           avatarUrl: null
         }
-      }
-    ] as unknown as Awaited<ReturnType<typeof app.prisma.attachment.findMany>>);
+      })
+    ]);
 
     const response = await app.inject({
       method: 'GET',

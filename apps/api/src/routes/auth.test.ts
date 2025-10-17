@@ -4,7 +4,7 @@ import { buildApp } from '../app.js';
 import { TokenService } from '../modules/auth/tokens.js';
 import type { TokenPair } from '../modules/auth/tokens.js';
 import { hashPassword } from '../modules/auth/hash.js';
-import { buildNotificationPreference, buildUser } from '../testing/user.js';
+import { buildNotificationPreference, buildUser, buildUserWithPreferences } from '../testing/builders.js';
 
 const refreshCookieName = 'taskflow_refresh_token';
 const demoUserId = '123e4567-e89b-12d3-a456-426614174000';
@@ -47,7 +47,7 @@ describe('auth routes', () => {
 
   it('registers a new account', async () => {
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(null);
-    const createdUser = buildUser({
+    const createdUser = buildUserWithPreferences({
       id: demoUserId,
       email: 'newuser@taskflow.app',
       name: 'New User',
@@ -85,8 +85,7 @@ describe('auth routes', () => {
       email: 'existing@taskflow.app',
       name: 'Existing User',
       createdAt: now,
-      updatedAt: now,
-      notificationPreference: null
+      updatedAt: now
     });
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(existingUser);
 
@@ -114,7 +113,7 @@ describe('auth routes', () => {
       inAppTaskUpdates: false
     });
     const findUniqueSpy = vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
-      buildUser({
+      buildUserWithPreferences({
         id: demoUserId,
         email: 'user@taskflow.app',
         passwordHash,
@@ -161,7 +160,7 @@ describe('auth routes', () => {
   it('creates notification preferences when absent during login', async () => {
     const passwordHash = await hashPassword('ComplexPass123!');
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
-      buildUser({
+      buildUserWithPreferences({
         id: demoUserId,
         email: 'user@taskflow.app',
         passwordHash,
@@ -279,8 +278,7 @@ describe('auth routes', () => {
         email: 'user@taskflow.app',
         name: 'Demo User',
         createdAt: now,
-        updatedAt: now,
-        notificationPreference: null
+        updatedAt: now
       })
     );
 

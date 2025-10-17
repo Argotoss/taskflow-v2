@@ -1,10 +1,17 @@
 import crypto from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
+import {
+  buildMembership,
+  buildMembershipWithUser,
+  buildMembershipWorkspaceSummary,
+  buildWorkspace,
+  buildWorkspaceInvite
+} from '../testing/builders.js';
 
 const userId = 'c0a80101-0000-0000-0000-000000000000';
 
-const workspaceRecord = {
+const workspaceRecord = buildWorkspace({
   id: '11111111-1111-1111-1111-111111111111',
   ownerId: userId,
   name: 'Demo Workspace',
@@ -12,7 +19,7 @@ const workspaceRecord = {
   description: 'demo',
   createdAt: new Date('2024-01-01T00:00:00.000Z'),
   updatedAt: new Date('2024-01-01T00:00:00.000Z')
-};
+});
 
 describe('workspace routes', () => {
   const app = buildApp();
@@ -30,10 +37,10 @@ describe('workspace routes', () => {
 
   it('lists workspaces for the current user', async () => {
     vi.spyOn(app.prisma.membership, 'findMany').mockResolvedValue([
-      {
+      buildMembershipWorkspaceSummary({
         workspace: workspaceRecord
-      }
-    ] as unknown as Awaited<ReturnType<typeof app.prisma.membership.findMany>>);
+      })
+    ]);
 
     vi.spyOn(app.prisma.membership, 'count').mockResolvedValue(1);
 
@@ -84,14 +91,14 @@ describe('workspace routes', () => {
   });
 
   it('updates a workspace when requester is admin', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem-1',
-      workspaceId: workspaceRecord.id,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'mem-1',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'OWNER'
+      })
+    );
 
     vi.spyOn(app.prisma.workspace, 'update').mockResolvedValue({
       ...workspaceRecord,
@@ -127,17 +134,17 @@ describe('workspace routes', () => {
   });
 
   it('lists workspace members', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem-1',
-      workspaceId: workspaceRecord.id,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'mem-1',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'OWNER'
+      })
+    );
 
     vi.spyOn(app.prisma.membership, 'findMany').mockResolvedValue([
-      {
+      buildMembershipWithUser({
         id: '22222222-2222-2222-2222-222222222222',
         workspaceId: workspaceRecord.id,
         userId,
@@ -150,8 +157,8 @@ describe('workspace routes', () => {
           name: 'Ava Stewart',
           avatarUrl: null
         }
-      }
-    ] as unknown as Awaited<ReturnType<typeof app.prisma.membership.findMany>>);
+      })
+    ]);
 
     vi.spyOn(app.prisma.membership, 'count').mockResolvedValue(1);
 
@@ -166,26 +173,25 @@ describe('workspace routes', () => {
   });
 
   it('creates an invite token', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem-1',
-      workspaceId: workspaceRecord.id,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'mem-1',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'OWNER'
+      })
+    );
 
-    vi.spyOn(app.prisma.workspaceInvite, 'create').mockResolvedValue({
-      id: crypto.randomUUID(),
-      workspaceId: workspaceRecord.id,
-      inviterId: userId,
-      email: 'new.user@taskflow.app',
-      role: 'CONTRIBUTOR',
-      token: crypto.randomUUID(),
-      expiresAt: new Date(),
-      acceptedAt: null,
-      createdAt: new Date()
-    });
+    vi.spyOn(app.prisma.workspaceInvite, 'create').mockResolvedValue(
+      buildWorkspaceInvite({
+        workspaceId: workspaceRecord.id,
+        inviterId: userId,
+        email: 'new.user@taskflow.app',
+        role: 'CONTRIBUTOR',
+        token: crypto.randomUUID(),
+        expiresAt: new Date()
+      })
+    );
 
     const response = await app.inject({
       method: 'POST',

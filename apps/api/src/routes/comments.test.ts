@@ -1,16 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
+import { buildCommentWithAuthor, buildMembership, buildTaskWithWorkspace } from '../testing/builders.js';
 
 const userId = 'abababab-abab-abab-abab-abababababab';
 const taskId = 'cdcdcdcd-cdcd-cdcd-cdcd-cdcdcdcdcdcd';
 const workspaceId = 'efefefef-efef-efef-efef-efefefefefef';
 
-const taskStub = {
+const taskStub = buildTaskWithWorkspace({
   id: taskId,
   project: {
     workspaceId
   }
-} as const;
+});
 
 describe('comment routes', () => {
   const app = buildApp();
@@ -27,21 +28,16 @@ describe('comment routes', () => {
   });
 
   const allowAccess = (): void => {
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>);
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem',
-      workspaceId,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    } as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub);
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
   };
 
   it('lists comments for a task', async () => {
     allowAccess();
     vi.spyOn(app.prisma.comment, 'findMany').mockResolvedValue([
-      {
+      buildCommentWithAuthor({
         id: '77777777-7777-7777-7777-777777777777',
         taskId,
         authorId: userId,
@@ -54,8 +50,8 @@ describe('comment routes', () => {
           name: 'Owner',
           avatarUrl: null
         }
-      }
-    ] as unknown as Awaited<ReturnType<typeof app.prisma.comment.findMany>>);
+      })
+    ]);
     vi.spyOn(app.prisma.comment, 'count').mockResolvedValue(1);
 
     const response = await app.inject({
@@ -70,20 +66,20 @@ describe('comment routes', () => {
 
   it('creates a comment', async () => {
     allowAccess();
-    vi.spyOn(app.prisma.comment, 'create').mockResolvedValue({
-      id: '77777777-7777-7777-7777-777777777777',
-      taskId,
-      authorId: userId,
-      body: 'Ship it',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      author: {
-        id: userId,
-        email: 'owner@taskflow.app',
-        name: 'Owner',
-        avatarUrl: null
-      }
-    } as unknown as Awaited<ReturnType<typeof app.prisma.comment.create>>);
+    vi.spyOn(app.prisma.comment, 'create').mockResolvedValue(
+      buildCommentWithAuthor({
+        id: '77777777-7777-7777-7777-777777777777',
+        taskId,
+        authorId: userId,
+        body: 'Ship it',
+        author: {
+          id: userId,
+          email: 'owner@taskflow.app',
+          name: 'Owner',
+          avatarUrl: null
+        }
+      })
+    );
 
     const response = await app.inject({
       method: 'POST',

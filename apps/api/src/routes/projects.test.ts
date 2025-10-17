@@ -1,21 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
+import { buildMembership, buildProject } from '../testing/builders.js';
 
 const userId = '22222222-2222-2222-2222-222222222222';
 const workspaceId = '11111111-1111-1111-1111-111111111111';
 
-const projectRecord = {
+const projectRecord = buildProject({
   id: '33333333-3333-3333-3333-333333333333',
   workspaceId,
   ownerId: userId,
   name: 'Team Portal',
   key: 'PORTAL',
   description: 'Internal portal',
-  status: 'ACTIVE' as const,
   createdAt: new Date('2024-01-05T00:00:00.000Z'),
-  updatedAt: new Date('2024-01-05T00:00:00.000Z'),
-  archivedAt: null
-};
+  updatedAt: new Date('2024-01-05T00:00:00.000Z')
+});
 
 describe('project routes', () => {
   const app = buildApp();
@@ -32,7 +31,9 @@ describe('project routes', () => {
   });
 
   it('lists projects in a workspace', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({ id: 'mem', workspaceId, userId, role: 'OWNER', createdAt: new Date(), updatedAt: new Date() });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
     vi.spyOn(app.prisma.project, 'findMany').mockResolvedValue([projectRecord]);
     vi.spyOn(app.prisma.project, 'count').mockResolvedValue(1);
 
@@ -47,7 +48,9 @@ describe('project routes', () => {
   });
 
   it('creates a project', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValueOnce({ id: 'mem', workspaceId, userId, role: 'OWNER', createdAt: new Date(), updatedAt: new Date() });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValueOnce(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
     vi.spyOn(app.prisma.project, 'findFirst').mockResolvedValue(null);
     vi.spyOn(app.prisma.project, 'create').mockResolvedValue(projectRecord);
 
@@ -66,7 +69,9 @@ describe('project routes', () => {
   });
 
   it('rejects duplicate project keys', async () => {
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({ id: 'mem', workspaceId, userId, role: 'OWNER', createdAt: new Date(), updatedAt: new Date() });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
     vi.spyOn(app.prisma.project, 'findFirst').mockResolvedValue(projectRecord);
 
     const response = await app.inject({
@@ -84,7 +89,9 @@ describe('project routes', () => {
 
   it('updates a project', async () => {
     vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(projectRecord);
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({ id: 'mem', workspaceId, userId, role: 'ADMIN', createdAt: new Date(), updatedAt: new Date() });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'ADMIN' })
+    );
     vi.spyOn(app.prisma.project, 'update').mockResolvedValue({ ...projectRecord, name: 'Portal V2' });
 
     const response = await app.inject({

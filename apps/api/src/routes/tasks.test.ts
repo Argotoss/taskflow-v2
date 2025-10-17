@@ -1,23 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Prisma } from '@taskflow/db';
 import { buildApp } from '../app.js';
+import { buildMembership, buildProjectAccess, buildTaskSummary } from '../testing/builders.js';
 
 const userId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const projectId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const workspaceId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
-const taskRecord = {
+const taskRecord = buildTaskSummary({
   id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
   projectId,
   creatorId: userId,
   assigneeId: userId,
   title: 'Design spec',
-  status: 'TODO' as const,
-  priority: 'HIGH' as const,
-  sortOrder: 1,
+  status: 'TODO',
+  priority: 'HIGH',
+  sortOrder: new Prisma.Decimal(1),
   dueDate: new Date('2024-02-01T00:00:00.000Z'),
   createdAt: new Date('2024-01-10T00:00:00.000Z'),
   updatedAt: new Date('2024-01-10T00:00:00.000Z')
-};
+});
 
 describe('task routes', () => {
   const app = buildApp();
@@ -33,34 +35,18 @@ describe('task routes', () => {
     vi.restoreAllMocks();
   });
 
-  const projectStub = {
-    id: projectId,
-    workspaceId,
-    ownerId: userId,
-    name: 'Demo',
-    key: 'DEMO',
-    description: null,
-    status: 'ACTIVE' as const,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    archivedAt: null
-  };
-
   const mockProjectAccess = (): void => {
-    vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(projectStub as unknown as Awaited<ReturnType<typeof app.prisma.project.findUnique>>);
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue({
-      id: 'mem',
-      workspaceId,
-      userId,
-      role: 'OWNER',
-      createdAt: new Date(),
-      updatedAt: new Date()
-    } as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
+    vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(
+      buildProjectAccess({ id: projectId, workspaceId, ownerId: userId })
+    );
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+    );
   };
 
   it('lists project tasks', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'findMany').mockResolvedValue([taskRecord] as unknown as Awaited<ReturnType<typeof app.prisma.task.findMany>>);
+    vi.spyOn(app.prisma.task, 'findMany').mockResolvedValue([taskRecord]);
     vi.spyOn(app.prisma.task, 'count').mockResolvedValue(1);
 
     const response = await app.inject({
@@ -75,7 +61,7 @@ describe('task routes', () => {
 
   it('creates a task', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'create').mockResolvedValue(taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.create>>);
+    vi.spyOn(app.prisma.task, 'create').mockResolvedValue(taskRecord);
 
     const response = await app.inject({
       method: 'POST',
@@ -92,8 +78,8 @@ describe('task routes', () => {
 
   it('updates a task', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue({ ...taskRecord, projectId } as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>);
-    vi.spyOn(app.prisma.task, 'update').mockResolvedValue({ ...taskRecord, title: 'Updated' } as unknown as Awaited<ReturnType<typeof app.prisma.task.update>>);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue({ ...taskRecord });
+    vi.spyOn(app.prisma.task, 'update').mockResolvedValue({ ...taskRecord, title: 'Updated' });
 
     const response = await app.inject({
       method: 'PATCH',
@@ -110,7 +96,7 @@ describe('task routes', () => {
 
   it('reorders tasks', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.update>>);
+    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(taskRecord);
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (operations) => {
       if (Array.isArray(operations)) {
         await Promise.all(operations as Promise<unknown>[]);

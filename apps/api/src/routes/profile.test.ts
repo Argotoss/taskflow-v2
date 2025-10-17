@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
-import { buildNotificationPreference, buildUser } from '../testing/user.js';
+import { buildNotificationPreference, buildUserWithPreferences } from '../testing/builders.js';
 
 const userId = '123e4567-e89b-12d3-a456-426614174000';
 
@@ -21,7 +21,7 @@ describe('profile routes', () => {
 
   it('returns the current user profile', async () => {
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
-      buildUser({
+      buildUserWithPreferences({
         id: userId,
         email: 'ava@taskflow.app',
         name: 'Ava Stewart',
@@ -52,7 +52,7 @@ describe('profile routes', () => {
 
   it('creates default preferences when missing', async () => {
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
-      buildUser({
+      buildUserWithPreferences({
         id: userId,
         email: 'ava@taskflow.app',
         name: 'Ava Stewart',
@@ -87,7 +87,7 @@ describe('profile routes', () => {
 
   it('updates profile fields and notification preferences', async () => {
     const updateSpy = vi.spyOn(app.prisma.user, 'update').mockResolvedValue(
-      buildUser({
+      buildUserWithPreferences({
         id: userId,
         email: 'ava@taskflow.app',
         name: 'Ava Updated',
