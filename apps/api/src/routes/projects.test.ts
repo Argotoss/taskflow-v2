@@ -32,9 +32,13 @@ describe('project routes', () => {
 
   it('lists projects in a workspace', async () => {
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
-    vi.spyOn(app.prisma.project, 'findMany').mockResolvedValue([projectRecord]);
+    vi.spyOn(app.prisma.project, 'findMany').mockResolvedValue([projectRecord] as unknown as Awaited<
+      ReturnType<typeof app.prisma.project.findMany>
+    >);
     vi.spyOn(app.prisma.project, 'count').mockResolvedValue(1);
 
     const response = await app.inject({
@@ -49,10 +53,14 @@ describe('project routes', () => {
 
   it('creates a project', async () => {
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValueOnce(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
     vi.spyOn(app.prisma.project, 'findFirst').mockResolvedValue(null);
-    vi.spyOn(app.prisma.project, 'create').mockResolvedValue(projectRecord);
+    vi.spyOn(app.prisma.project, 'create').mockResolvedValue(
+      projectRecord as unknown as Awaited<ReturnType<typeof app.prisma.project.create>>
+    );
 
     const response = await app.inject({
       method: 'POST',
@@ -70,9 +78,13 @@ describe('project routes', () => {
 
   it('rejects duplicate project keys', async () => {
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
-    vi.spyOn(app.prisma.project, 'findFirst').mockResolvedValue(projectRecord);
+    vi.spyOn(app.prisma.project, 'findFirst').mockResolvedValue(
+      projectRecord as unknown as Awaited<ReturnType<typeof app.prisma.project.findFirst>>
+    );
 
     const response = await app.inject({
       method: 'POST',
@@ -88,11 +100,17 @@ describe('project routes', () => {
   });
 
   it('updates a project', async () => {
-    vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(projectRecord);
-    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'ADMIN' })
+    vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(
+      projectRecord as unknown as Awaited<ReturnType<typeof app.prisma.project.findUnique>>
     );
-    vi.spyOn(app.prisma.project, 'update').mockResolvedValue({ ...projectRecord, name: 'Portal V2' });
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'ADMIN' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
+    );
+    vi.spyOn(app.prisma.project, 'update').mockResolvedValue(
+      { ...projectRecord, name: 'Portal V2' } as unknown as Awaited<ReturnType<typeof app.prisma.project.update>>
+    );
 
     const response = await app.inject({
       method: 'PATCH',

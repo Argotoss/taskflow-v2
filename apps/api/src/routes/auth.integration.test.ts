@@ -282,13 +282,15 @@ const authTokenDelete = async (args: { where: { id: string } }): Promise<AuthTok
     vi.spyOn(app.prisma.authToken, 'deleteMany').mockImplementation(authTokenDeleteMany as never);
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (operation: unknown) => {
       if (typeof operation === 'function') {
-        return (operation as CallableFunction).call(undefined, {
+        const transactionClient = {
           authToken: {
             findUnique: authTokenFindUnique,
             delete: authTokenDelete,
             create: authTokenCreate
           }
-        } as never);
+        };
+        type TransactionExecutor = (client: typeof transactionClient) => Promise<unknown>;
+        return (operation as TransactionExecutor)(transactionClient);
       }
       const tasks = Array.isArray(operation) ? operation : [];
       return Promise.all(tasks);

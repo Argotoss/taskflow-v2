@@ -5,6 +5,7 @@ import {
   buildMembership,
   buildMembershipWithUser,
   buildMembershipWorkspaceSummary,
+  buildUser,
   buildWorkspace,
   buildWorkspaceInvite
 } from '../testing/builders.js';
@@ -40,7 +41,7 @@ describe('workspace routes', () => {
       buildMembershipWorkspaceSummary({
         workspace: workspaceRecord
       })
-    ]);
+    ] as unknown as Awaited<ReturnType<typeof app.prisma.membership.findMany>>);
 
     vi.spyOn(app.prisma.membership, 'count').mockResolvedValue(1);
 
@@ -97,7 +98,7 @@ describe('workspace routes', () => {
         workspaceId: workspaceRecord.id,
         userId,
         role: 'OWNER'
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
     );
 
     vi.spyOn(app.prisma.workspace, 'update').mockResolvedValue({
@@ -140,7 +141,7 @@ describe('workspace routes', () => {
         workspaceId: workspaceRecord.id,
         userId,
         role: 'OWNER'
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
     );
 
     vi.spyOn(app.prisma.membership, 'findMany').mockResolvedValue([
@@ -151,14 +152,14 @@ describe('workspace routes', () => {
         role: 'OWNER',
         createdAt: new Date('2024-01-02T00:00:00.000Z'),
         updatedAt: new Date('2024-01-02T00:00:00.000Z'),
-        user: {
+        user: buildUser({
           id: userId,
           email: 'ava.stewart@taskflow.app',
           name: 'Ava Stewart',
           avatarUrl: null
-        }
+        })
       })
-    ]);
+    ] as unknown as Awaited<ReturnType<typeof app.prisma.membership.findMany>>);
 
     vi.spyOn(app.prisma.membership, 'count').mockResolvedValue(1);
 
@@ -179,7 +180,7 @@ describe('workspace routes', () => {
         workspaceId: workspaceRecord.id,
         userId,
         role: 'OWNER'
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
     );
 
     vi.spyOn(app.prisma.workspaceInvite, 'create').mockResolvedValue(
@@ -190,7 +191,7 @@ describe('workspace routes', () => {
         role: 'CONTRIBUTOR',
         token: crypto.randomUUID(),
         expiresAt: new Date()
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.create>>
     );
 
     const response = await app.inject({

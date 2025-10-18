@@ -37,16 +37,22 @@ describe('task routes', () => {
 
   const mockProjectAccess = (): void => {
     vi.spyOn(app.prisma.project, 'findUnique').mockResolvedValue(
-      buildProjectAccess({ id: projectId, workspaceId, ownerId: userId })
+      buildProjectAccess({ id: projectId, workspaceId, ownerId: userId }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.project.findUnique>
+      >
     );
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
   };
 
   it('lists project tasks', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'findMany').mockResolvedValue([taskRecord]);
+    vi.spyOn(app.prisma.task, 'findMany').mockResolvedValue([taskRecord] as unknown as Awaited<
+      ReturnType<typeof app.prisma.task.findMany>
+    >);
     vi.spyOn(app.prisma.task, 'count').mockResolvedValue(1);
 
     const response = await app.inject({
@@ -61,7 +67,9 @@ describe('task routes', () => {
 
   it('creates a task', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'create').mockResolvedValue(taskRecord);
+    vi.spyOn(app.prisma.task, 'create').mockResolvedValue(
+      taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.create>>
+    );
 
     const response = await app.inject({
       method: 'POST',
@@ -78,8 +86,12 @@ describe('task routes', () => {
 
   it('updates a task', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue({ ...taskRecord });
-    vi.spyOn(app.prisma.task, 'update').mockResolvedValue({ ...taskRecord, title: 'Updated' });
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
+      { ...taskRecord } as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
+    );
+    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(
+      { ...taskRecord, title: 'Updated' } as unknown as Awaited<ReturnType<typeof app.prisma.task.update>>
+    );
 
     const response = await app.inject({
       method: 'PATCH',
@@ -96,7 +108,9 @@ describe('task routes', () => {
 
   it('reorders tasks', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(taskRecord);
+    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(
+      taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.update>>
+    );
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (operations) => {
       if (Array.isArray(operations)) {
         await Promise.all(operations as Promise<unknown>[]);

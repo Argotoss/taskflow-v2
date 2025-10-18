@@ -28,9 +28,13 @@ describe('attachment routes', () => {
   });
 
   const allowAccess = (): void => {
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
+      taskStub as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
+    );
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
   };
 
@@ -70,7 +74,7 @@ describe('attachment routes', () => {
           name: 'Owner',
           avatarUrl: null
         }
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.attachment.create>>
     );
 
     const response = await app.inject({
@@ -107,7 +111,7 @@ describe('attachment routes', () => {
           avatarUrl: null
         }
       })
-    ]);
+    ] as unknown as Awaited<ReturnType<typeof app.prisma.attachment.findMany>>);
 
     const response = await app.inject({
       method: 'GET',

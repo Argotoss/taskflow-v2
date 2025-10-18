@@ -28,9 +28,13 @@ describe('comment routes', () => {
   });
 
   const allowAccess = (): void => {
-    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(taskStub);
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
+      taskStub as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
+    );
     vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
-      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' })
+      buildMembership({ id: 'mem', workspaceId, userId, role: 'OWNER' }) as unknown as Awaited<
+        ReturnType<typeof app.prisma.membership.findFirst>
+      >
     );
   };
 
@@ -51,7 +55,7 @@ describe('comment routes', () => {
           avatarUrl: null
         }
       })
-    ]);
+    ] as unknown as Awaited<ReturnType<typeof app.prisma.comment.findMany>>);
     vi.spyOn(app.prisma.comment, 'count').mockResolvedValue(1);
 
     const response = await app.inject({
@@ -78,7 +82,7 @@ describe('comment routes', () => {
           name: 'Owner',
           avatarUrl: null
         }
-      })
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.comment.create>>
     );
 
     const response = await app.inject({

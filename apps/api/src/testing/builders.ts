@@ -1,14 +1,15 @@
 import { Prisma } from '@taskflow/db';
+import type { Membership, NotificationPreference, Project, User, Workspace, WorkspaceInvite } from '@taskflow/db';
 
 const timestamp = (value = '2024-01-01T00:00:00.000Z'): Date => new Date(value);
 
-export type NotificationPreferenceRecord = Prisma.NotificationPreference;
-export type UserRecord = Prisma.User;
+export type NotificationPreferenceRecord = NotificationPreference;
+export type UserRecord = User;
 export type UserWithPreferences = Prisma.UserGetPayload<{ include: { notificationPreference: true } }>;
-export type WorkspaceRecord = Prisma.Workspace;
-export type MembershipRecord = Prisma.Membership;
+export type WorkspaceRecord = Workspace;
+export type MembershipRecord = Membership;
 export type MembershipWithUser = Prisma.MembershipGetPayload<{ include: { user: true } }>;
-export type ProjectRecord = Prisma.Project;
+export type ProjectRecord = Project;
 export type ProjectAccessRecord = Prisma.ProjectGetPayload<{ select: { id: true; workspaceId: true; ownerId: true } }>;
 export type MembershipWorkspaceSummary = Prisma.MembershipGetPayload<{
   select: {
@@ -79,7 +80,7 @@ export type CommentWithAuthor = Prisma.CommentGetPayload<{
     };
   };
 }>;
-export type WorkspaceInviteRecord = Prisma.WorkspaceInvite;
+export type WorkspaceInviteRecord = WorkspaceInvite;
 
 export const buildNotificationPreference = (
   overrides: Partial<NotificationPreferenceRecord> = {}
