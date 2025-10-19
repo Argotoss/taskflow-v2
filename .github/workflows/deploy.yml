@@ -67,7 +67,7 @@ jobs:
       - name: Run database migrations
         env:
           DATABASE_URL: ${{ steps.database-secret.outputs.database-url }}
-        run: npx prisma migrate deploy --schema packages/db/prisma/schema.prisma
+        run: node scripts/prisma-deploy.mjs
 
       - name: Login to Amazon ECR
         id: login-ecr
