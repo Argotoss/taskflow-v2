@@ -1,38 +1,56 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent, JSX } from 'react';
-import type { UpdateProfileBody } from '@taskflow/types';
+import type { UpdateProfileBody, InvitePreviewResponse } from '@taskflow/types';
 import { useAuth } from '../useAuth.js';
-import { ApiError } from '../authApi.js';
+import { authApi, ApiError } from '../authApi.js';
+import WorkspaceAdminPanel from '../../workspaces/components/WorkspaceAdminPanel.js';
 import ProfileForm from './ProfileForm.js';
 
-type AuthMode = 'login' | 'register' | 'forgot' | 'reset';
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset' | 'invite';
 
-const resolveInitialMode = (): { mode: AuthMode; token: string } => {
+const resolveInitialMode = (): { mode: AuthMode; resetToken: string; inviteToken: string } => {
   if (typeof window === 'undefined') {
-    return { mode: 'login', token: '' };
+    return { mode: 'login', resetToken: '', inviteToken: '' };
   }
 
   const params = new URLSearchParams(window.location.search);
-  const token = params.get('token');
-  if (typeof token === 'string' && token.length > 0) {
-    return { mode: 'reset', token };
+  const invite = params.get('invite');
+  if (typeof invite === 'string' && invite.length > 0) {
+    return { mode: 'invite', resetToken: '', inviteToken: invite };
   }
 
-  return { mode: 'login', token: '' };
+  const token = params.get('token');
+  if (typeof token === 'string' && token.length > 0) {
+    return { mode: 'reset', resetToken: token, inviteToken: '' };
+  }
+
+  return { mode: 'login', resetToken: '', inviteToken: '' };
 };
 
 const modeLabels: Record<AuthMode, string> = {
   login: 'Sign in',
   register: 'Create account',
   forgot: 'Request reset link',
-  reset: 'Choose new password'
+  reset: 'Choose new password',
+  invite: 'Join workspace'
+};
+
+const inviteRoleLabels: Record<InvitePreviewResponse['role'], string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  CONTRIBUTOR: 'Contributor',
+  VIEWER: 'Viewer'
 };
 
 const AuthPanel = (): JSX.Element => {
   const auth = useAuth();
   const initial = useMemo(resolveInitialMode, []);
   const [mode, setMode] = useState<AuthMode>(initial.mode);
-  const [resetToken, setResetToken] = useState(initial.token);
+  const [resetToken, setResetToken] = useState(initial.resetToken);
+  const [inviteToken, setInviteToken] = useState(initial.inviteToken);
+  const [invitePreview, setInvitePreview] = useState<InvitePreviewResponse | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(initial.mode === 'invite');
+  const [inviteError, setInviteError] = useState('');
   const [error, setError] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -40,22 +58,70 @@ const AuthPanel = (): JSX.Element => {
   const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '' });
   const [forgotEmail, setForgotEmail] = useState('');
   const [resetForm, setResetForm] = useState({ password: '', confirm: '' });
+  const [inviteForm, setInviteForm] = useState({ name: '', password: '', confirm: '' });
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegisterPassword, setShowRegisterPassword] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showInvitePassword, setShowInvitePassword] = useState(false);
+  const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [profileError, setProfileError] = useState('');
   const [profileStatus, setProfileStatus] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
 
+  useEffect(() => {
+    if (mode !== 'invite' || !inviteToken) {
+      setInvitePreview(null);
+      setInviteLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setInviteLoading(true);
+    setInviteError('');
+    authApi
+      .previewInvite(inviteToken)
+      .then((response) => {
+        if (!cancelled) {
+          setInvitePreview(response);
+          setInviteForm((current) => ({ ...current, name: response.invitedEmail.split('@')[0].replace(/\./g, ' ') }));
+        }
+      })
+      .catch((exception) => {
+        if (!cancelled) {
+          const message = exception instanceof ApiError ? exception.message : 'Unable to load invite';
+          setInviteError(message);
+          setInvitePreview(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setInviteLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken, mode]);
+
   const clearFeedback = (): void => {
     setError('');
     setStatusMessage('');
+    setInviteError('');
   };
 
   const switchMode = (nextMode: AuthMode): void => {
     setMode(nextMode);
     clearFeedback();
+    if (nextMode !== 'reset') {
+      setResetToken('');
+    }
+    if (nextMode !== 'invite') {
+      setInviteToken('');
+      setInvitePreview(null);
+      setInviteForm({ name: '', password: '', confirm: '' });
+      setShowInvitePassword(false);
+      setShowInviteConfirm(false);
+    }
   };
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
@@ -126,6 +192,37 @@ const AuthPanel = (): JSX.Element => {
     }
   };
 
+  const handleInviteAccept = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    clearFeedback();
+    setInviteError('');
+
+    if (inviteForm.password !== inviteForm.confirm) {
+      setInviteError('Passwords must match');
+      return;
+    }
+
+    if (!inviteToken) {
+      setInviteError('Invite token missing');
+      return;
+    }
+
+    if (!inviteForm.name.trim()) {
+      setInviteError('Name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await auth.acceptInvite({ token: inviteToken, name: inviteForm.name.trim(), password: inviteForm.password });
+      setStatusMessage('Welcome aboard. You are now signed in.');
+    } catch (exception) {
+      setInviteError(exception instanceof ApiError ? exception.message : 'Unable to join workspace');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleProfileSubmit = async (changes: UpdateProfileBody): Promise<void> => {
     setProfileError('');
     setProfileStatus('');
@@ -169,6 +266,7 @@ const AuthPanel = (): JSX.Element => {
         {profileError && <div className="auth-card__error">{profileError}</div>}
         {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
         <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
+        <WorkspaceAdminPanel accessToken={auth.session?.tokens.accessToken ?? null} currentUserId={auth.user.id} />
         <button
           className="auth-card__link"
           type="button"
@@ -204,8 +302,73 @@ const AuthPanel = (): JSX.Element => {
         )}
       </div>
 
-      {error && <div className="auth-card__error">{error}</div>}
+      {mode !== 'invite' && error && <div className="auth-card__error">{error}</div>}
       {statusMessage && <div className="auth-card__status">{statusMessage}</div>}
+
+      {mode === 'invite' && (
+        <>
+          {inviteLoading && <p className="auth-card__subtitle">Validating invite…</p>}
+          {!inviteLoading && inviteError && <div className="auth-card__error">{inviteError}</div>}
+          {!inviteLoading && !inviteError && invitePreview && (
+            <>
+              <p className="auth-card__subtitle">
+                {invitePreview.invitedEmail} was invited to {invitePreview.workspaceName} as {inviteRoleLabels[invitePreview.role]}.
+              </p>
+              <form className="auth-form" onSubmit={handleInviteAccept}>
+                <label className="auth-form__field">
+                  <span>Full name</span>
+                  <input
+                    type="text"
+                    value={inviteForm.name}
+                    onChange={(event) => setInviteForm({ ...inviteForm, name: event.currentTarget.value })}
+                    required
+                  />
+                </label>
+                <label className="auth-form__field">
+                  <span>Create password</span>
+                  <div className="auth-form__password-wrapper">
+                    <input
+                      type={showInvitePassword ? 'text' : 'password'}
+                      value={inviteForm.password}
+                      onChange={(event) => setInviteForm({ ...inviteForm, password: event.currentTarget.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="auth-form__toggle"
+                      onClick={() => setShowInvitePassword((value) => !value)}
+                    >
+                      {showInvitePassword ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </label>
+                <label className="auth-form__field">
+                  <span>Confirm password</span>
+                  <div className="auth-form__password-wrapper">
+                    <input
+                      type={showInviteConfirm ? 'text' : 'password'}
+                      value={inviteForm.confirm}
+                      onChange={(event) => setInviteForm({ ...inviteForm, confirm: event.currentTarget.value })}
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="auth-form__toggle"
+                      onClick={() => setShowInviteConfirm((value) => !value)}
+                    >
+                      {showInviteConfirm ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
+                </label>
+                <button className="primary" type="submit" disabled={loading}>
+                  {loading ? 'Joining…' : 'Join workspace'}
+                </button>
+              </form>
+            </>
+          )}
+          {!inviteLoading && !inviteError && !invitePreview && <p className="auth-card__subtitle">This invite is no longer available.</p>}
+        </>
+      )}
 
       {mode === 'login' && (
         <form className="auth-form" onSubmit={handleLogin}>

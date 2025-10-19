@@ -9,7 +9,8 @@ import type {
   ResetPasswordBody,
   LoginResponse,
   UpdateProfileBody,
-  UserDetail
+  UserDetail,
+  InviteAcceptBody
 } from '@taskflow/types';
 import { authApi, ApiError } from './authApi.js';
 
@@ -31,6 +32,7 @@ interface AuthContextValue {
   requestPasswordReset: (email: ForgotPasswordBody['email']) => Promise<void>;
   resetPassword: (input: ResetPasswordBody) => Promise<void>;
   updateProfile: (changes: UpdateProfileBody) => Promise<void>;
+  acceptInvite: (payload: InviteAcceptBody) => Promise<void>;
 }
 /* eslint-enable @typescript-eslint/no-unused-vars, no-unused-vars */
 
@@ -205,6 +207,11 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
     applySession(withIssuedAt(response));
   }, [applySession]);
 
+  const acceptInvite = useCallback(async (payload: InviteAcceptBody) => {
+    const response = await authApi.acceptInvite(payload);
+    applySession(withIssuedAt(response));
+  }, [applySession]);
+
   const logout = useCallback(async () => {
     const current = session;
     await authApi.logout(current?.tokens.accessToken ?? null, current?.tokens.refreshToken ?? null);
@@ -276,8 +283,9 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
     logout,
     requestPasswordReset,
     resetPassword,
-    updateProfile
-  }), [login, logout, ready, register, requestPasswordReset, resetPassword, session, updateProfile]);
+    updateProfile,
+    acceptInvite
+  }), [acceptInvite, login, logout, ready, register, requestPasswordReset, resetPassword, session, updateProfile]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
