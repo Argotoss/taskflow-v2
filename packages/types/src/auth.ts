@@ -2,9 +2,11 @@ import { z } from 'zod';
 import { emailSchema, membershipRoleSchema, uuidSchema } from './primitives.js';
 import { userDetailSchema } from './user.js';
 
+const passwordSchema = z.string().min(4);
+
 export const registerBodySchema = z.object({
   email: emailSchema,
-  password: z.string().min(12),
+  password: passwordSchema,
   name: z.string().min(1)
 });
 
@@ -36,13 +38,13 @@ export const forgotPasswordBodySchema = z.object({
 
 export const resetPasswordBodySchema = z.object({
   token: z.string(),
-  password: z.string().min(12)
+  password: passwordSchema
 });
 
 export const inviteAcceptBodySchema = z.object({
   token: z.string(),
   name: z.string().min(1),
-  password: z.string().min(12)
+  password: passwordSchema
 });
 
 export const invitePreviewResponseSchema = z.object({
