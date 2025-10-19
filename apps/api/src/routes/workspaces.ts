@@ -373,11 +373,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
 
   app.delete('/workspaces/:workspaceId/invites/:inviteId', async (request, reply) => {
     const userId = await requireUserId(request);
-    const paramsInput = {
-      workspaceId: request.params?.workspaceId,
-      inviteId: request.params?.inviteId
-    };
-    const params = workspaceInviteParamsSchema.parse(paramsInput);
+    const params = workspaceInviteParamsSchema.parse(request.params);
 
     const inviter = await app.prisma.membership.findFirst({
       where: {
@@ -406,11 +402,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
 
   app.patch('/workspaces/:workspaceId/members/:membershipId', async (request) => {
     const userId = await requireUserId(request);
-    const paramsInput = {
-      workspaceId: request.params?.workspaceId,
-      membershipId: request.params?.membershipId
-    };
-    const params = membershipParamsSchema.parse(paramsInput);
+    const params = membershipParamsSchema.parse(request.params);
     const body = updateMembershipBodySchema.parse(request.body);
 
     const actorMembership = await app.prisma.membership.findFirst({
@@ -479,11 +471,7 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
 
   app.delete('/workspaces/:workspaceId/members/:membershipId', async (request, reply) => {
     const userId = await requireUserId(request);
-    const paramsInput = {
-      workspaceId: request.params?.workspaceId,
-      membershipId: request.params?.membershipId
-    };
-    const params = membershipParamsSchema.parse(paramsInput);
+    const params = membershipParamsSchema.parse(request.params);
 
     const target = await app.prisma.membership.findUnique({
       where: {

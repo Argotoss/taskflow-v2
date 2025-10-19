@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { Prisma } from '@taskflow/db';
 import {
   forgotPasswordBodySchema,
   loginBodySchema,
@@ -236,7 +237,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
 
     if (existingUser) {
-      const valid = await verifyPassword(existingUser.passwordHash, body.password);
+      type ExistingUserWithPreference = Prisma.UserGetPayload<{
+        include: { notificationPreference: true };
+      }>;
+      const userRecord = existingUser as ExistingUserWithPreference;
+
+      const valid = await verifyPassword(userRecord.passwordHash, body.password);
       if (!valid) {
         throw app.httpErrors.unauthorized('Invalid credentials for invited account');
       }
@@ -248,12 +254,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
           where: {
             workspaceId_userId: {
               workspaceId: invite.workspaceId,
-              userId: existingUser.id
+              userId: userRecord.id
             }
           },
           create: {
             workspaceId: invite.workspaceId,
-            userId: existingUser.id,
+            userId: userRecord.id,
             role: invite.role
           },
           update: {
@@ -261,11 +267,11 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
           }
         });
 
-        let preferenceRecord = existingUser.notificationPreference;
+        let preferenceRecord = userRecord.notificationPreference;
         if (!preferenceRecord) {
           preferenceRecord = await tx.notificationPreference.create({
             data: {
-              userId: existingUser.id
+              userId: userRecord.id
             }
           });
         }
@@ -278,7 +284,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         });
 
         const reloaded = await tx.user.findUniqueOrThrow({
-          where: { id: existingUser.id },
+          where: { id: userRecord.id },
           include: {
             notificationPreference: true
           }
@@ -300,6 +306,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       throw app.httpErrors.badRequest('Name is required to create an account');
     }
 
+    const accountName = body.name;
     const passwordHash = await hashPassword(body.password);
     const now = new Date();
 
@@ -308,7 +315,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         data: {
           email: invite.email,
           passwordHash,
-          name: body.name,
+          name: accountName,
           notificationPreference: {
             create: {}
           }
