@@ -289,7 +289,8 @@ const authTokenDelete = async (args: { where: { id: string } }): Promise<AuthTok
             create: authTokenCreate
           }
         };
-        return (operation as CallableFunction).apply(undefined, [transactionClient]) as Promise<unknown>;
+        const execute = operation as () => Promise<unknown> | unknown;
+        return Promise.resolve(execute.call(undefined, transactionClient));
       }
       const tasks = Array.isArray(operation) ? operation : [];
       return Promise.all(tasks);
