@@ -100,12 +100,19 @@ resource "aws_route_table_association" "private" {
 
 resource "aws_security_group" "alb" {
   name        = "${local.name}-alb-sg"
-  description = "Allow inbound HTTP traffic"
+  description = "Allow inbound web traffic"
   vpc_id      = aws_vpc.main.id
 
   ingress {
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -226,6 +233,24 @@ resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.api.arn
   port              = 80
   protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  load_balancer_arn = aws_lb.api.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.alb_certificate_arn
 
   default_action {
     type             = "forward"
@@ -605,7 +630,7 @@ resource "aws_ecs_service" "api" {
 
   tags = local.common_tags
 
-  depends_on = [aws_lb_listener.http]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.https]
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {

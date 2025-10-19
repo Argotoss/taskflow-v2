@@ -82,6 +82,11 @@ variable "health_check_path" {
   default     = "/health"
 }
 
+variable "alb_certificate_arn" {
+  description = "ACM certificate ARN for the load balancer HTTPS listener."
+  type        = string
+}
+
 variable "tags" {
   description = "Additional resource tags."
   type        = map(string)

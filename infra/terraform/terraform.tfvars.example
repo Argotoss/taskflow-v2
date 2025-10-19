@@ -2,6 +2,7 @@ project_name   = "taskflow"
 environment    = "staging"
 aws_region     = "us-east-1"
 container_port = 3000
+acm_certificate_arn = "arn:aws:acm:region:account:certificate/uuid"
 desired_count  = 1
 container_cpu  = 256
 container_memory = 512
