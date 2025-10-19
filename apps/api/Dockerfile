@@ -32,17 +32,14 @@ ENV NODE_ENV=production
 WORKDIR /app
 # Install OpenSSL for Prisma
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=build /app/packages/config/package.json ./packages/config/package.json
-COPY --from=build /app/packages/types/package.json ./packages/types/package.json
-COPY --from=build /app/packages/db/package.json ./packages/db/package.json
-COPY --from=build /app/apps/api/package.json ./apps/api/package.json
-COPY --from=build /app/apps/web/package.json ./apps/web/package.json
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/package-lock.json ./package-lock.json
+COPY --from=build /app/packages/config ./packages/config
+COPY --from=build /app/packages/types ./packages/types
+COPY --from=build /app/packages/db ./packages/db
+COPY --from=build /app/apps/api/package.json ./apps/api/package.json
+COPY --from=build /app/apps/web/package.json ./apps/web/package.json
 RUN npm ci --omit=dev --ignore-scripts
-COPY --from=build /app/packages/config/dist ./packages/config/dist
-COPY --from=build /app/packages/types/dist ./packages/types/dist
-COPY --from=build /app/packages/db/dist ./packages/db/dist
 # Copy generated Prisma client
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
