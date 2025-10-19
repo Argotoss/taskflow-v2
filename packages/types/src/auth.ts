@@ -43,7 +43,7 @@ export const resetPasswordBodySchema = z.object({
 
 export const inviteAcceptBodySchema = z.object({
   token: z.string(),
-  name: z.string().min(1),
+  name: z.string().min(1).optional(),
   password: passwordSchema
 });
 
@@ -54,6 +54,10 @@ export const invitePreviewResponseSchema = z.object({
   role: membershipRoleSchema
 });
 
+export const invitePreviewQuerySchema = z.object({
+  token: z.string().uuid()
+});
+
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type AuthTokens = z.infer<typeof authTokensSchema>;
@@ -62,3 +66,5 @@ export type RefreshBody = z.infer<typeof refreshBodySchema>;
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
 export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
+export type InviteAcceptBody = z.infer<typeof inviteAcceptBodySchema>;
+export type InvitePreviewResponse = z.infer<typeof invitePreviewResponseSchema>;

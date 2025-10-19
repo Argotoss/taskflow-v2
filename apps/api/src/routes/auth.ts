@@ -6,7 +6,10 @@ import {
   refreshBodySchema,
   refreshResponseSchema,
   registerBodySchema,
-  resetPasswordBodySchema
+  resetPasswordBodySchema,
+  invitePreviewQuerySchema,
+  invitePreviewResponseSchema,
+  inviteAcceptBodySchema
 } from '@taskflow/types';
 import { hashPassword, verifyPassword } from '../modules/auth/hash.js';
 import { TokenService, type TokenContext } from '../modules/auth/tokens.js';
@@ -173,5 +176,173 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     reply.code(204);
     return null;
+  });
+
+  app.get('/auth/invite/:token', async (request) => {
+    const params = invitePreviewQuerySchema.parse(request.params);
+
+    const invite = await app.prisma.workspaceInvite.findFirst({
+      where: {
+        token: params.token,
+        acceptedAt: null,
+        expiresAt: {
+          gt: new Date()
+        }
+      },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+
+    if (!invite) {
+      throw app.httpErrors.notFound('Invite not found or expired');
+    }
+
+    return {
+      data: invitePreviewResponseSchema.parse({
+        workspaceId: invite.workspace.id,
+        workspaceName: invite.workspace.name,
+        invitedEmail: invite.email,
+        role: invite.role
+      })
+    };
+  });
+
+  app.post('/auth/invite/accept', async (request, reply) => {
+    const body = inviteAcceptBodySchema.parse(request.body);
+
+    const invite = await app.prisma.workspaceInvite.findFirst({
+      where: {
+        token: body.token
+      }
+    });
+
+    if (!invite || invite.acceptedAt || invite.expiresAt <= new Date()) {
+      throw app.httpErrors.notFound('Invite not found or expired');
+    }
+
+    const existingUser = await app.prisma.user.findUnique({
+      where: {
+        email: invite.email
+      },
+      include: {
+        notificationPreference: true
+      }
+    });
+
+    if (existingUser) {
+      const valid = await verifyPassword(existingUser.passwordHash, body.password);
+      if (!valid) {
+        throw app.httpErrors.unauthorized('Invalid credentials for invited account');
+      }
+
+      const now = new Date();
+
+      const { user, preference } = await app.prisma.$transaction(async (tx) => {
+        await tx.membership.upsert({
+          where: {
+            workspaceId_userId: {
+              workspaceId: invite.workspaceId,
+              userId: existingUser.id
+            }
+          },
+          create: {
+            workspaceId: invite.workspaceId,
+            userId: existingUser.id,
+            role: invite.role
+          },
+          update: {
+            role: invite.role
+          }
+        });
+
+        let preferenceRecord = existingUser.notificationPreference;
+        if (!preferenceRecord) {
+          preferenceRecord = await tx.notificationPreference.create({
+            data: {
+              userId: existingUser.id
+            }
+          });
+        }
+
+        await tx.workspaceInvite.update({
+          where: { id: invite.id },
+          data: {
+            acceptedAt: now
+          }
+        });
+
+        const reloaded = await tx.user.findUniqueOrThrow({
+          where: { id: existingUser.id },
+          include: {
+            notificationPreference: true
+          }
+        });
+
+        return { user: reloaded, preference: preferenceRecord ?? reloaded.notificationPreference };
+      });
+
+      const session = await tokens.createSession(user.id, buildContext(request));
+      setRefreshTokenCookie(reply, session.refreshToken);
+
+      return loginResponseSchema.parse({
+        user: serializeUser(user, preference),
+        tokens: session
+      });
+    }
+
+    if (!body.name) {
+      throw app.httpErrors.badRequest('Name is required to create an account');
+    }
+
+    const passwordHash = await hashPassword(body.password);
+    const now = new Date();
+
+    const { user, preference } = await app.prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          email: invite.email,
+          passwordHash,
+          name: body.name,
+          notificationPreference: {
+            create: {}
+          }
+        },
+        include: {
+          notificationPreference: true
+        }
+      });
+
+      await tx.membership.create({
+        data: {
+          workspaceId: invite.workspaceId,
+          userId: createdUser.id,
+          role: invite.role
+        }
+      });
+
+      await tx.workspaceInvite.update({
+        where: { id: invite.id },
+        data: {
+          acceptedAt: now
+        }
+      });
+
+      return { user: createdUser, preference: createdUser.notificationPreference };
+    });
+
+    const session = await tokens.createSession(user.id, buildContext(request));
+    setRefreshTokenCookie(reply, session.refreshToken);
+
+    reply.code(201);
+    return loginResponseSchema.parse({
+      user: serializeUser(user, preference),
+      tokens: session
+    });
   });
 };

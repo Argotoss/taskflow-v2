@@ -267,12 +267,12 @@ export const buildCommentWithAuthor = (
 export const buildWorkspaceInvite = (
   overrides: Partial<WorkspaceInviteRecord> = {}
 ): WorkspaceInviteRecord => ({
-  id: overrides.id ?? 'invite-00000000-0000-0000-0000-000000000000',
+  id: overrides.id ?? '99999999-9999-9999-9999-999999999999',
   workspaceId: overrides.workspaceId ?? '11111111-1111-1111-1111-111111111111',
   inviterId: overrides.inviterId ?? '00000000-0000-0000-0000-000000000000',
   email: overrides.email ?? 'invitee@taskflow.app',
   role: overrides.role ?? 'CONTRIBUTOR',
-  token: overrides.token ?? 'invite-token',
+  token: overrides.token ?? 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   expiresAt: overrides.expiresAt ?? timestamp('2024-02-01T00:00:00.000Z'),
   acceptedAt: Object.prototype.hasOwnProperty.call(overrides, 'acceptedAt') ? overrides.acceptedAt ?? null : null,
   createdAt: overrides.createdAt ?? timestamp()

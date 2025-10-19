@@ -5,14 +5,20 @@ import {
   inviteMemberBodySchema,
   listWorkspaceMembersResponseSchema,
   listWorkspacesResponseSchema,
+  membershipParamsSchema,
   membershipSummarySchema,
+  updateMembershipBodySchema,
   updateWorkspaceBodySchema,
+  workspaceInviteParamsSchema,
+  workspaceInviteSummarySchema,
+  listWorkspaceInvitesResponseSchema,
   workspaceListQuerySchema,
   workspaceParamsSchema,
   workspaceSummarySchema,
   createWorkspaceBodySchema,
   type WorkspaceSummary,
-  type MembershipSummary
+  type MembershipSummary,
+  type WorkspaceInviteSummary
 } from '@taskflow/types';
 import { requireUserId } from '../utils/current-user.js';
 
@@ -64,6 +70,29 @@ const serializeMembership = (membership: {
       name: membership.user.name,
       avatarUrl: membership.user.avatarUrl
     }
+  });
+
+const serializeInvite = (invite: {
+  id: string;
+  workspaceId: string;
+  inviterId: string;
+  email: string;
+  role: string;
+  token: string;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  createdAt: Date;
+}): WorkspaceInviteSummary =>
+  workspaceInviteSummarySchema.parse({
+    id: invite.id,
+    workspaceId: invite.workspaceId,
+    inviterId: invite.inviterId,
+    email: invite.email,
+    role: invite.role,
+    token: invite.token,
+    expiresAt: invite.expiresAt.toISOString(),
+    acceptedAt: invite.acceptedAt ? invite.acceptedAt.toISOString() : null,
+    createdAt: invite.createdAt.toISOString()
   });
 
 const toPagination = (page: number, pageSize: number): { skip: number; take: number } => ({
@@ -266,19 +295,244 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
       throw app.httpErrors.forbidden('Insufficient permissions to invite members');
     }
 
+    const emailLower = body.email.trim().toLowerCase();
+
+    const existingMembership = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        user: {
+          email: emailLower
+        }
+      }
+    });
+
+    if (existingMembership) {
+      throw app.httpErrors.conflict('User is already a member of this workspace');
+    }
+
+    await app.prisma.workspaceInvite.deleteMany({
+      where: {
+        workspaceId: params.workspaceId,
+        email: emailLower,
+        acceptedAt: null
+      }
+    });
+
     const token = crypto.randomUUID();
+    const expiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     await app.prisma.workspaceInvite.create({
       data: {
         workspaceId: params.workspaceId,
         inviterId: userId,
-        email: body.email,
+        email: emailLower,
         role: body.role ?? 'CONTRIBUTOR',
         token,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        expiresAt: expiry
       }
     });
 
     return { data: { token } };
   });
+
+  app.get('/workspaces/:workspaceId/invites', async (request) => {
+    const userId = await requireUserId(request);
+    const params = workspaceParamsSchema.parse(request.params);
+
+    const inviter = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        userId,
+        role: {
+          in: ['OWNER', 'ADMIN']
+        }
+      }
+    });
+
+    if (!inviter) {
+      throw app.httpErrors.forbidden('Insufficient permissions to view invites');
+    }
+
+    const invites = await app.prisma.workspaceInvite.findMany({
+      where: {
+        workspaceId: params.workspaceId,
+        acceptedAt: null,
+        expiresAt: {
+          gt: new Date()
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const data = invites.map((invite) => serializeInvite(invite));
+
+    return listWorkspaceInvitesResponseSchema.parse({ data });
+  });
+
+  app.delete('/workspaces/:workspaceId/invites/:inviteId', async (request, reply) => {
+    const userId = await requireUserId(request);
+    const paramsInput = {
+      workspaceId: request.params?.workspaceId,
+      inviteId: request.params?.inviteId
+    };
+    const params = workspaceInviteParamsSchema.parse(paramsInput);
+
+    const inviter = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        userId,
+        role: {
+          in: ['OWNER', 'ADMIN']
+        }
+      }
+    });
+
+    if (!inviter) {
+      throw app.httpErrors.forbidden('Insufficient permissions to delete invites');
+    }
+
+    await app.prisma.workspaceInvite.deleteMany({
+      where: {
+        id: params.inviteId,
+        workspaceId: params.workspaceId
+      }
+    });
+
+    reply.code(204);
+    return null;
+  });
+
+  app.patch('/workspaces/:workspaceId/members/:membershipId', async (request) => {
+    const userId = await requireUserId(request);
+    const paramsInput = {
+      workspaceId: request.params?.workspaceId,
+      membershipId: request.params?.membershipId
+    };
+    const params = membershipParamsSchema.parse(paramsInput);
+    const body = updateMembershipBodySchema.parse(request.body);
+
+    const actorMembership = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        userId
+      }
+    });
+
+    if (!actorMembership || actorMembership.role !== 'OWNER') {
+      throw app.httpErrors.forbidden('Only workspace owners can update member roles');
+    }
+
+    const target = await app.prisma.membership.findUnique({
+      where: {
+        id: params.membershipId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+
+    if (!target || target.workspaceId !== params.workspaceId) {
+      throw app.httpErrors.notFound('Membership not found');
+    }
+
+    if (target.role === 'OWNER' && body.role !== 'OWNER') {
+      const ownerCount = await app.prisma.membership.count({
+        where: {
+          workspaceId: params.workspaceId,
+          role: 'OWNER'
+        }
+      });
+
+      if (ownerCount <= 1) {
+        throw app.httpErrors.badRequest('Workspace requires at least one owner');
+      }
+    }
+
+    const updated = await app.prisma.membership.update({
+      where: { id: params.membershipId },
+      data: {
+        role: body.role
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            avatarUrl: true
+          }
+        }
+      }
+    });
+
+    return { data: serializeMembership(updated) };
+  });
+
+  app.delete('/workspaces/:workspaceId/members/:membershipId', async (request, reply) => {
+    const userId = await requireUserId(request);
+    const paramsInput = {
+      workspaceId: request.params?.workspaceId,
+      membershipId: request.params?.membershipId
+    };
+    const params = membershipParamsSchema.parse(paramsInput);
+
+    const target = await app.prisma.membership.findUnique({
+      where: {
+        id: params.membershipId
+      }
+    });
+
+    if (!target || target.workspaceId !== params.workspaceId) {
+      throw app.httpErrors.notFound('Membership not found');
+    }
+
+    const actor = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        userId
+      }
+    });
+
+    if (!actor) {
+      throw app.httpErrors.forbidden('Insufficient permissions for workspace');
+    }
+
+    const isSelf = actor.id === target.id;
+    const isOwner = actor.role === 'OWNER';
+
+    if (!isSelf && !isOwner) {
+      throw app.httpErrors.forbidden('Only owners can remove other members');
+    }
+
+    if (target.role === 'OWNER') {
+      const ownerCount = await app.prisma.membership.count({
+        where: {
+          workspaceId: params.workspaceId,
+          role: 'OWNER'
+        }
+      });
+      if (ownerCount <= 1) {
+        throw app.httpErrors.badRequest('Workspace requires at least one owner');
+      }
+    }
+
+    await app.prisma.membership.delete({
+      where: {
+        id: params.membershipId
+      }
+    });
+
+    reply.code(204);
+    return null;
+  });
+
 };

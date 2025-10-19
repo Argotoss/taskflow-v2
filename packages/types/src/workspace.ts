@@ -52,6 +52,10 @@ export const inviteMemberBodySchema = z.object({
   role: membershipRoleSchema.default('CONTRIBUTOR')
 });
 
+export const updateMembershipBodySchema = z.object({
+  role: membershipRoleSchema
+});
+
 export const membershipParamsSchema = z.object({
   workspaceId: uuidSchema,
   membershipId: uuidSchema
@@ -61,9 +65,36 @@ export const workspaceParamsSchema = z.object({
   workspaceId: uuidSchema
 });
 
+export const workspaceInviteSummarySchema = z.object({
+  id: uuidSchema,
+  workspaceId: uuidSchema,
+  inviterId: uuidSchema,
+  email: z.string().email(),
+  role: membershipRoleSchema,
+  token: z.string().uuid(),
+  expiresAt: isoDateTimeSchema,
+  acceptedAt: isoDateTimeSchema.nullable(),
+  createdAt: isoDateTimeSchema
+});
+
+export const listWorkspaceInvitesResponseSchema = z.object({
+  data: workspaceInviteSummarySchema.array()
+});
+
+export const workspaceInviteParamsSchema = z.object({
+  workspaceId: uuidSchema,
+  inviteId: uuidSchema
+});
+
+export const inviteTokenSchema = z.object({
+  token: z.string().uuid()
+});
+
 export const workspaceListQuerySchema = paginationQuerySchema.extend({
   search: z.string().optional()
 });
 
 export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 export type MembershipSummary = z.infer<typeof membershipSummarySchema>;
+export type WorkspaceInviteSummary = z.infer<typeof workspaceInviteSummarySchema>;
+export type MembershipRole = z.infer<typeof membershipRoleSchema>;
