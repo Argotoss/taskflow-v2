@@ -5,6 +5,8 @@ import {
   listWorkspaceInvitesResponseSchema,
   inviteMemberBodySchema,
   updateMembershipBodySchema,
+  createWorkspaceBodySchema,
+  workspaceSummarySchema,
   type WorkspaceSummary,
   type MembershipSummary,
   type WorkspaceInviteSummary,
@@ -22,6 +24,10 @@ const membershipResponseSchema = z.object({
   data: listWorkspaceMembersResponseSchema.shape.data.element
 });
 
+const workspaceResponseSchema = z.object({
+  data: workspaceSummarySchema
+});
+
 const requireToken = (token: string | null | undefined): string => {
   if (!token) {
     throw new ApiError('Authentication required', 401);
@@ -36,6 +42,16 @@ export const workspaceApi = {
       method: 'GET',
       headers: authorizationHeaders(token)
     }, listWorkspacesResponseSchema);
+    return response.data;
+  },
+  async create(accessToken: string | null, payload: { name: string; slug: string; description?: string | null }): Promise<WorkspaceSummary> {
+    const token = requireToken(accessToken);
+    const body = createWorkspaceBodySchema.parse(payload);
+    const response = await request('/workspaces', {
+      method: 'POST',
+      headers: authorizationHeaders(token),
+      body: serializeBody(body)
+    }, workspaceResponseSchema);
     return response.data;
   },
   async members(accessToken: string | null, workspaceId: string): Promise<MembershipSummary[]> {

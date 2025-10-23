@@ -43,6 +43,27 @@ describe('workspaceApi', () => {
     expect(response).toEqual(data);
   });
 
+  it('creates a workspace', async () => {
+    const workspace: WorkspaceSummary = {
+      id: '22222222-2222-2222-2222-222222222222',
+      name: 'New Workspace',
+      slug: 'new-workspace',
+      description: null,
+      ownerId: '00000000-0000-0000-0000-000000000000',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    fetchMock().mockResolvedValue(buildFetchResponse({ data: workspace }));
+
+    const response = await workspaceApi.create(accessToken, { name: workspace.name, slug: workspace.slug });
+
+    expect(response).toEqual(workspace);
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:3000/workspaces',
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('creates an invite and returns token', async () => {
     fetchMock().mockResolvedValue(
       buildFetchResponse({ data: { token: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } })
