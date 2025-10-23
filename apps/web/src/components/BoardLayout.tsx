@@ -10,6 +10,7 @@ import { projectApi } from '../projects/projectApi.js';
 import { tasksApi } from '../tasks/taskApi.js';
 import { ApiError } from '../api/httpClient.js';
 import TaskDetailModal from '../tasks/components/TaskDetailModal.js';
+import ProjectOverview from './ProjectOverview.js';
 
 type TaskStatus = TaskSummary['status'];
 
@@ -120,6 +121,7 @@ const BoardLayout = (): JSX.Element => {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [boardTasks, setBoardTasks] = useState<Record<TaskStatus, TaskSummary[]>>(createEmptyBoard);
+  const [statusFilters, setStatusFilters] = useState<TaskStatus[]>(statusOrder);
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -160,6 +162,23 @@ const BoardLayout = (): JSX.Element => {
     }
     return 'Drag and drop tasks to update status. Changes sync automatically.';
   }, [activeWorkspace, activeProject, loadingWorkspaces, loadingProjects, loadingTasks, projects.length]);
+
+  const statusSummary = useMemo(
+    () =>
+      columnDefinitions.map((column) => ({
+        status: column.status,
+        title: column.title,
+        count: boardTasks[column.status].length
+      })),
+    [boardTasks]
+  );
+
+  const totalTaskCount = useMemo(
+    () => statusSummary.reduce((total, entry) => total + entry.count, 0),
+    [statusSummary]
+  );
+
+  const statusFilterSet = useMemo(() => new Set<TaskStatus>(statusFilters), [statusFilters]);
 
   useEffect(() => {
     if (!infoMessage || typeof window === 'undefined') {
@@ -381,6 +400,10 @@ const BoardLayout = (): JSX.Element => {
     };
   }, [accessToken, selectedProjectId]);
 
+  useEffect(() => {
+    setStatusFilters(statusOrder);
+  }, [selectedProjectId]);
+
   const persistBoardState = async (
     projectId: string,
     token: string,
@@ -418,6 +441,26 @@ const BoardLayout = (): JSX.Element => {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const handleStatusFilterToggle = (status: TaskStatus): void => {
+    setStatusFilters((current) => {
+      const allSelected = current.length === statusOrder.length;
+      const selected = current.includes(status);
+      if (allSelected && selected) {
+        return [status];
+      }
+      if (selected) {
+        const next = current.filter((entry) => entry !== status);
+        return next.length === 0 ? statusOrder : next;
+      }
+      const combined = [...current, status];
+      return Array.from(new Set(combined)) as TaskStatus[];
+    });
+  };
+
+  const handleStatusFilterReset = (): void => {
+    setStatusFilters(statusOrder);
   };
 
   const resetTaskModal = (): void => {
@@ -692,109 +735,128 @@ const BoardLayout = (): JSX.Element => {
           </div>
         </header>
 
+        <ProjectOverview
+          project={activeProject}
+          statusCounts={statusSummary}
+          totalCount={totalTaskCount}
+          activeFilters={statusFilters}
+          loading={loadingTasks}
+          onToggle={({ status }) => handleStatusFilterToggle(status)}
+          onReset={handleStatusFilterReset}
+        />
+
         {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
         {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}
         {syncing && !loadingTasks && <div className="board-feedback board-feedback--info">Saving changes…</div>}
 
         <DragDropContext onDragEnd={handleDragEnd}>
           <section className="board-columns" aria-label="Workspace board">
-            {columnDefinitions.map((column) => (
-              <Droppable droppableId={column.status} key={column.status}>
-                {(provided, snapshot) => (
-                  <article
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className={`board-column board-column--${column.className} ${
-                      snapshot.isDraggingOver ? 'board-column--dragging-over' : ''
-                    }`}
-                  >
-                    <header className="board-column__header">
-                      <h2>{column.title}</h2>
-                      <div className="board-column__header-actions">
-                        <span className="board-column__count">{boardTasks[column.status].length}</span>
-                        <button
-                          type="button"
-                          className="board-column__add-icon"
-                          onClick={() => openTaskModal(column.status)}
-                          disabled={!canMutateBoard}
-                          aria-label={`Add task to ${column.title}`}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </header>
-                    <p className="board-column__description">{column.description}</p>
-                    {boardTasks[column.status].length === 0 ? (
-                      <div className="board-column__empty">No tasks yet. Add one to get started.</div>
-                    ) : (
-                      <div className="board-column__tasks">
-                        {boardTasks[column.status].map((task, index) => (
-                          <Draggable draggableId={task.id} index={index} key={task.id}>
-                            {(dragProvided, dragSnapshot) => (
-                              <article
-                                ref={dragProvided.innerRef}
-                                {...dragProvided.draggableProps}
-                                {...dragProvided.dragHandleProps}
-                                className={`board-task board-task--${column.className} ${
-                                  dragSnapshot.isDragging ? 'board-task--dragging' : ''
-                                }`}
-                              >
-                                <div
-                                  className="board-task__content"
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => openTaskDetail(task)}
-                                  onKeyDown={(event) => {
-                                    if (event.key === 'Enter' || event.key === ' ') {
-                                      event.preventDefault();
-                                      openTaskDetail(task);
-                                    }
-                                  }}
-                                  aria-label={`View details for ${task.title}`}
-                                >
-                                  <h3>{task.title}</h3>
-                                  {task.description && <p>{task.description}</p>}
-                                  <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
-                                </div>
-                                <div
-                                  className="board-task__actions"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                  }}
-                                  onKeyDown={(event) => {
-                                    event.stopPropagation();
-                                  }}
-                                >
-                                  <label htmlFor={`status-${task.id}`}>Status</label>
-                                  <select
-                                    id={`status-${task.id}`}
-                                    value={task.status}
-                                    onChange={(event) =>
-                                      handleTaskStatusChange(task.id, column.status, event.target.value as TaskStatus)
-                                    }
-                                    disabled={!canMutateBoard}
+            {columnDefinitions.map((column) => {
+              const columnVisible = statusFilterSet.has(column.status);
+              const dropDisabled = !columnVisible || !canMutateBoard;
+              return (
+                <Droppable droppableId={column.status} key={column.status} isDropDisabled={dropDisabled}>
+                  {(provided, snapshot) => (
+                    <article
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`board-column board-column--${column.className} ${
+                        snapshot.isDraggingOver ? 'board-column--dragging-over' : ''
+                      } ${columnVisible ? '' : 'board-column--filtered-out'}`}
+                    >
+                      <header className="board-column__header">
+                        <h2>{column.title}</h2>
+                        <div className="board-column__header-actions">
+                          <span className="board-column__count">{boardTasks[column.status].length}</span>
+                          <button
+                            type="button"
+                            className="board-column__add-icon"
+                            onClick={() => openTaskModal(column.status)}
+                            disabled={!canMutateBoard || !columnVisible}
+                            aria-label={`Add task to ${column.title}`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      </header>
+                      <p className="board-column__description">{column.description}</p>
+                      {columnVisible ? (
+                        boardTasks[column.status].length === 0 ? (
+                          <div className="board-column__empty">No tasks yet. Add one to get started.</div>
+                        ) : (
+                          <div className="board-column__tasks">
+                            {boardTasks[column.status].map((task, index) => (
+                              <Draggable draggableId={task.id} index={index} key={task.id}>
+                                {(dragProvided, dragSnapshot) => (
+                                  <article
+                                    ref={dragProvided.innerRef}
+                                    {...dragProvided.draggableProps}
+                                    {...dragProvided.dragHandleProps}
+                                    className={`board-task board-task--${column.className} ${
+                                      dragSnapshot.isDragging ? 'board-task--dragging' : ''
+                                    }`}
                                   >
-                                    {columnDefinitions.map((option) => (
-                                      <option key={option.status} value={option.status}>
-                                        {option.title}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard}>
-                                    Remove
-                                  </button>
-                                </div>
-                              </article>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </article>
-                )}
-              </Droppable>
-            ))}
+                                    <div
+                                      className="board-task__content"
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => openTaskDetail(task)}
+                                      onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                          event.preventDefault();
+                                          openTaskDetail(task);
+                                        }
+                                      }}
+                                      aria-label={`View details for ${task.title}`}
+                                    >
+                                      <h3>{task.title}</h3>
+                                      {task.description && <p>{task.description}</p>}
+                                      <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
+                                    </div>
+                                    <div
+                                      className="board-task__actions"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                      }}
+                                      onKeyDown={(event) => {
+                                        event.stopPropagation();
+                                      }}
+                                    >
+                                      <label htmlFor={`status-${task.id}`}>Status</label>
+                                      <select
+                                        id={`status-${task.id}`}
+                                        value={task.status}
+                                        onChange={(event) =>
+                                          handleTaskStatusChange(task.id, column.status, event.target.value as TaskStatus)
+                                        }
+                                        disabled={!canMutateBoard}
+                                      >
+                                        {columnDefinitions.map((option) => (
+                                          <option key={option.status} value={option.status}>
+                                            {option.title}
+                                          </option>
+                                        ))}
+                                      </select>
+                                      <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard}>
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </article>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )
+                      ) : (
+                        <div className="board-column__filtered">Hidden by filter</div>
+                      )}
+                      {!columnVisible && provided.placeholder}
+                    </article>
+                  )}
+                </Droppable>
+              );
+            })}
           </section>
         </DragDropContext>
       </main>
