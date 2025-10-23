@@ -9,6 +9,7 @@ import { workspaceApi } from '../workspaces/workspaceApi.js';
 import { projectApi } from '../projects/projectApi.js';
 import { tasksApi } from '../tasks/taskApi.js';
 import { ApiError } from '../api/httpClient.js';
+import TaskDetailModal from '../tasks/components/TaskDetailModal.js';
 
 type TaskStatus = TaskSummary['status'];
 
@@ -126,6 +127,8 @@ const BoardLayout = (): JSX.Element => {
   const [syncing, setSyncing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
+  const [taskDetail, setTaskDetail] = useState<TaskSummary | null>(null);
   const workspaceEnsuredRef = useRef(false);
   const projectEnsuredRef = useRef<Record<string, boolean>>({});
 
@@ -344,6 +347,21 @@ const BoardLayout = (): JSX.Element => {
           grouped[status].sort((a, b) => a.sortOrder - b.sortOrder);
         });
         setBoardTasks(grouped);
+        let detailRemoved = false;
+        setTaskDetail((current) => {
+          if (!current) {
+            return current;
+          }
+          const refreshed = data.find((item) => item.id === current.id) ?? null;
+          if (!refreshed) {
+            detailRemoved = true;
+            return null;
+          }
+          return refreshed;
+        });
+        if (detailRemoved) {
+          setTaskDetailOpen(false);
+        }
       } catch (error) {
         if (!cancelled) {
           setErrorMessage(error instanceof ApiError ? error.message : 'Failed to load tasks');
@@ -406,6 +424,34 @@ const BoardLayout = (): JSX.Element => {
     setTaskTitle('');
     setTaskDescription('');
     setTaskColumn('TODO');
+  };
+
+  const openTaskDetail = (task: TaskSummary): void => {
+    setTaskDetail(task);
+    setTaskDetailOpen(true);
+  };
+
+  const closeTaskDetail = (): void => {
+    setTaskDetailOpen(false);
+    setTaskDetail(null);
+  };
+
+  const applyTaskSnapshot = (updated: TaskSummary): void => {
+    setBoardTasks((current) => {
+      const next = cloneBoard(current);
+      statusOrder.forEach((status) => {
+        next[status] = next[status].filter((entry) => entry.id !== updated.id);
+      });
+      const targetStatus = statusOrder.includes(updated.status) ? updated.status : 'TODO';
+      next[targetStatus] = [...next[targetStatus], updated].sort((a, b) => a.sortOrder - b.sortOrder);
+      return next;
+    });
+    setTaskDetail((current) => (current && current.id === updated.id ? updated : current));
+  };
+
+  const handleTaskUpdatedFromModal = (updated: TaskSummary): void => {
+    applyTaskSnapshot(updated);
+    setInfoMessage('Task updated');
   };
 
   const openTaskModal = (status: TaskStatus): void => {
@@ -480,10 +526,13 @@ const BoardLayout = (): JSX.Element => {
     const [task] = sourceTasks.splice(index, 1);
     const updatedTask = { ...task, status: nextStatus };
     next[nextStatus].push(updatedTask);
+    if (taskDetail?.id === taskId) {
+      setTaskDetail({ ...taskDetail, status: nextStatus });
+    }
     void runBoardMutation(next, previous);
   };
 
-  const handleTaskRemove = (taskId: string, status: TaskStatus): void => {
+  const handleTaskRemove = async (taskId: string, status: TaskStatus): Promise<void> => {
     if (!selectedProjectId || !accessToken || syncing || loadingTasks) {
       return;
     }
@@ -491,9 +540,22 @@ const BoardLayout = (): JSX.Element => {
     const previous = cloneBoard(boardTasks);
     const next = cloneBoard(boardTasks);
     next[status] = next[status].filter((task) => task.id !== taskId);
-    void runBoardMutation(next, previous, {
-      sideEffect: () => tasksApi.remove(accessToken, taskId)
-    });
+    try {
+      await runBoardMutation(next, previous, {
+        sideEffect: () => tasksApi.remove(accessToken, taskId)
+      });
+      if (taskDetail?.id === taskId) {
+        closeTaskDetail();
+      }
+      setInfoMessage('Task removed');
+    } catch {
+      // errors handled in runBoardMutation
+    }
+  };
+
+  const handleTaskDeletedFromModal = async (task: TaskSummary): Promise<void> => {
+    await handleTaskRemove(task.id, task.status);
+    closeTaskDetail();
   };
 
   const handleDragEnd = ({ source, destination }: DropResult): void => {
@@ -677,12 +739,32 @@ const BoardLayout = (): JSX.Element => {
                                   dragSnapshot.isDragging ? 'board-task--dragging' : ''
                                 }`}
                               >
-                                <div className="board-task__content">
+                                <div
+                                  className="board-task__content"
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() => openTaskDetail(task)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      openTaskDetail(task);
+                                    }
+                                  }}
+                                  aria-label={`View details for ${task.title}`}
+                                >
                                   <h3>{task.title}</h3>
                                   {task.description && <p>{task.description}</p>}
                                   <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
                                 </div>
-                                <div className="board-task__actions">
+                                <div
+                                  className="board-task__actions"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                  }}
+                                  onKeyDown={(event) => {
+                                    event.stopPropagation();
+                                  }}
+                                >
                                   <label htmlFor={`status-${task.id}`}>Status</label>
                                   <select
                                     id={`status-${task.id}`}
@@ -716,6 +798,17 @@ const BoardLayout = (): JSX.Element => {
           </section>
         </DragDropContext>
       </main>
+
+      <TaskDetailModal
+        open={taskDetailOpen}
+        task={taskDetail}
+        accessToken={accessToken}
+        canEdit={canMutateBoard}
+        statusOptions={columnDefinitions.map((column) => ({ status: column.status, title: column.title }))}
+        onClose={closeTaskDetail}
+        onTaskUpdated={handleTaskUpdatedFromModal}
+        onTaskDeleted={handleTaskDeletedFromModal}
+      />
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Account & Workspace">
         <AuthPanel />
