@@ -14,36 +14,26 @@ Taskflow v2 is a multi-package workspace targeting a Fastify + TypeScript backen
 ## Prerequisites
 - Node.js 20.11+
 - npm 10+
-- Podman 4+ (for local image builds)
-- Terraform 1.6+
+- Docker Desktop/Engine **or** Podman (the helper script auto-detects; set `CONTAINER_RUNTIME=podman` if you prefer it)
+- Terraform 1.6+ (for infrastructure work)
 
 ## Local Development
-Install dependencies once:
+The quickest path is a single command that brings up Docker services, applies migrations, and runs both dev servers:
+
 ```bash
-npm ci
-npm run prisma:generate
-npm run db:seed # optional
-npm run build:types
+cp .env.example .env.local            # customise if desired
+npm install                           # once
+npm run dev:local                     # add --seed to load demo data
 ```
 
-Run quality gates:
+Behind the scenes this script runs `docker compose up -d`, `prisma migrate deploy`, and then starts the API on `http://localhost:3000` and the web client on `http://localhost:5173`. Stop everything with `Ctrl+C`; the containers remain running so subsequent runs are instant (`docker compose down` when you’re done for the day).
+
+Quality gates stay the same:
 ```bash
 npm run lint
-npm run test
+npm test
 npm run build
 ```
-
-Start the API locally:
-```bash
-npm run dev:api
-```
-
-## Container Workflow
-Build and run the container with Podman Compose:
-```bash
-podman compose up --build
-```
-The API exposes `http://localhost:3000/health`.
 
 ## Infrastructure Setup
 1. Copy and adjust variables:
