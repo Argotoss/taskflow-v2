@@ -647,7 +647,7 @@ h1 {
 .board-task {
   border-radius: 1rem;
   border: 1px solid rgba(59, 130, 246, 0.25);
-  background: rgba(17, 24, 39, 0.9);
+  background: rgba(17, 24, 39, 0.88);
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -656,10 +656,40 @@ h1 {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
+.board-task--backlog {
+  border-color: rgba(14, 165, 233, 0.45);
+  background: linear-gradient(155deg, rgba(17, 24, 39, 0.92), rgba(14, 165, 233, 0.18));
+  box-shadow: 0 16px 34px rgba(14, 165, 233, 0.18);
+}
+
+.board-task--in-progress {
+  border-color: rgba(37, 99, 235, 0.48);
+  background: linear-gradient(155deg, rgba(17, 24, 39, 0.92), rgba(37, 99, 235, 0.2));
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.18);
+}
+
+.board-task--review {
+  border-color: rgba(168, 85, 247, 0.48);
+  background: linear-gradient(155deg, rgba(17, 23, 42, 0.92), rgba(168, 85, 247, 0.22));
+  box-shadow: 0 16px 34px rgba(168, 85, 247, 0.18);
+}
+
+.board-task--blocked {
+  border-color: rgba(244, 63, 94, 0.5);
+  background: linear-gradient(155deg, rgba(20, 18, 32, 0.92), rgba(244, 63, 94, 0.22));
+  box-shadow: 0 16px 34px rgba(244, 63, 94, 0.15);
+}
+
+.board-task--done {
+  border-color: rgba(34, 197, 94, 0.48);
+  background: linear-gradient(155deg, rgba(14, 27, 24, 0.92), rgba(34, 197, 94, 0.23));
+  box-shadow: 0 16px 34px rgba(34, 197, 94, 0.18);
+}
+
 .board-task--dragging {
   transform: rotate(1deg) translateY(-2px);
-  border-color: rgba(59, 130, 246, 0.55);
-  box-shadow: 0 24px 48px rgba(3, 7, 18, 0.55);
+  border-color: rgba(255, 255, 255, 0.55);
+  box-shadow: 0 24px 48px rgba(3, 7, 18, 0.65);
 }
 
 .board-task--dragging select,

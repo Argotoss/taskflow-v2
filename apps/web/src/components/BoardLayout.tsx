@@ -246,7 +246,9 @@ const BoardLayout = (): JSX.Element => {
                                 ref={dragProvided.innerRef}
                                 {...dragProvided.draggableProps}
                                 {...dragProvided.dragHandleProps}
-                                className={`board-task ${dragSnapshot.isDragging ? 'board-task--dragging' : ''}`}
+                                className={`board-task board-task--${column.key} ${
+                                  dragSnapshot.isDragging ? 'board-task--dragging' : ''
+                                }`}
                               >
                                 <div className="board-task__content">
                                   <h3>{task.title}</h3>
