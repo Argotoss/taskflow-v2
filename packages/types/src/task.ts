@@ -79,3 +79,5 @@ export const listTasksResponseSchema = z.object({
 
 export type TaskSummary = z.infer<typeof taskSummarySchema>;
 export type TaskDetail = z.infer<typeof taskDetailSchema>;
+export type TaskStatus = z.infer<typeof taskStatusSchema>;
+export type TaskPriority = z.infer<typeof taskPrioritySchema>;
