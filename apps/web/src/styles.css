@@ -382,7 +382,33 @@ h1 {
 .board-header__actions {
   display: flex;
   gap: 0.75rem;
-  align-items: center;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.board-header__selectors {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.board-header__selectors label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.board-header__selectors select {
+  border-radius: 0.6rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.7);
+  color: rgba(226, 232, 240, 0.9);
+  padding: 0.45rem 0.6rem;
+  min-width: 180px;
 }
 
 .board-button {
@@ -461,6 +487,28 @@ h1 {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.25rem;
   align-items: start;
+}
+
+.board-feedback {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 0.9rem;
+}
+
+.board-feedback--error {
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(127, 29, 29, 0.3);
+  color: #fecdd3;
+}
+
+.board-feedback--info {
+  border-color: rgba(37, 99, 235, 0.45);
+  background: rgba(30, 64, 175, 0.28);
+  color: #bfdbfe;
 }
 
 .board-column {
@@ -563,6 +611,12 @@ h1 {
   color: rgba(226, 232, 240, 0.95);
 }
 
+.board-column__header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .board-column__count {
   background: rgba(59, 130, 246, 0.16);
   border: 1px solid rgba(59, 130, 246, 0.3);
@@ -570,6 +624,45 @@ h1 {
   padding: 0.1rem 0.65rem;
   font-size: 0.85rem;
   color: #bfdbfe;
+}
+
+.board-column__add-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(30, 41, 59, 0.5);
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 1rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.board-column__add-icon:hover:not(:disabled) {
+  border-color: rgba(59, 130, 246, 0.55);
+  background: rgba(59, 130, 246, 0.25);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.45);
+  transform: translateY(-1px);
+}
+
+.board-column__add-icon:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96);
+}
+
+.board-column__add-icon:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.75);
+  outline-offset: 3px;
+}
+
+.board-column__add-icon:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .board-column__description {
@@ -592,31 +685,6 @@ h1 {
   padding: 1.25rem 1rem;
 }
 
-.board-column__add {
-  align-self: flex-start;
-  padding: 0.45rem 0.75rem;
-  border-radius: 0.6rem;
-  border: 1px solid rgba(59, 130, 246, 0.25);
-  background: rgba(30, 41, 59, 0.45);
-  color: rgba(226, 232, 240, 0.85);
-  cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.board-column__add:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.45);
-  transform: translateY(-1px);
-}
-
-.board-column__add:active {
-  transform: translateY(1px) scale(0.98);
-}
-
-.board-column__add:focus-visible {
-  outline: 2px solid rgba(59, 130, 246, 0.75);
-  outline-offset: 3px;
-}
 
 .modal-overlay {
   position: fixed;
@@ -738,6 +806,15 @@ h1 {
   padding: 0.45rem 0.6rem;
 }
 
+.board-task__actions select:disabled,
+.board-header__selectors select:disabled,
+.task-form__field input:disabled,
+.task-form__field textarea:disabled,
+.task-form__field select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .board-task__actions button {
   border-radius: 0.6rem;
   border: 1px solid rgba(244, 63, 94, 0.35);
@@ -746,6 +823,13 @@ h1 {
   padding: 0.45rem 0.75rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
+}
+
+.board-task__actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .board-task__actions button:hover {

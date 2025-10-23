@@ -50,6 +50,13 @@ export const authorizationHeaders = (accessToken: string | null | undefined): Re
   };
 };
 
+export const requireAccessToken = (accessToken: string | null | undefined): string => {
+  if (!accessToken) {
+    throw new ApiError('Authentication required', 401);
+  }
+  return accessToken;
+};
+
 export const serializeBody = (payload: unknown): string => JSON.stringify(payload);
 
 export const request = async <Schema extends z.ZodTypeAny>(
