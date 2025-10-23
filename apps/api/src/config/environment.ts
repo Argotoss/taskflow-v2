@@ -9,6 +9,8 @@ const schema = z.object({
   JWT_EXPIRES_IN_SECONDS: z.coerce.number().int().positive().default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   RESET_PASSWORD_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(60),
+  AUTH_RATE_LIMIT_TIME_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
   AWS_REGION: z.string().min(1).default('us-east-1'),
   ATTACHMENTS_BUCKET: z.string().min(1).default('taskflow-local-attachments'),
   CORS_ORIGIN: z

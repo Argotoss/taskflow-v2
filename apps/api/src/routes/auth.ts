@@ -29,10 +29,15 @@ const buildContext = (request: FastifyRequest): TokenContext => {
   };
 };
 
+const authRateLimitConfig = (): { max: number; timeWindow: number } => ({
+  max: environment.AUTH_RATE_LIMIT_MAX,
+  timeWindow: environment.AUTH_RATE_LIMIT_TIME_WINDOW_MS
+});
+
 export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> => {
   const tokens = new TokenService(app);
 
-  app.post('/auth/register', async (request, reply) => {
+  app.post('/auth/register', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = registerBodySchema.parse(request.body);
     const email = normalizeEmail(body.email);
 
@@ -66,7 +71,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
   });
 
-  app.post('/auth/login', async (request, reply) => {
+  app.post('/auth/login', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = loginBodySchema.parse(request.body);
     const email = normalizeEmail(body.email);
 
@@ -140,7 +145,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     return null;
   });
 
-  app.post('/auth/forgot-password', async (request, reply) => {
+  app.post('/auth/forgot-password', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = forgotPasswordBodySchema.parse(request.body);
     const email = normalizeEmail(body.email);
 
@@ -156,7 +161,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     return null;
   });
 
-  app.post('/auth/reset-password', async (request, reply) => {
+  app.post('/auth/reset-password', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = resetPasswordBodySchema.parse(request.body);
     const userId = await tokens.consumePasswordResetToken(body.token);
 
@@ -214,7 +219,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     };
   });
 
-  app.post('/auth/invite/accept', async (request, reply) => {
+  app.post('/auth/invite/accept', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = inviteAcceptBodySchema.parse(request.body);
 
     const invite = await app.prisma.workspaceInvite.findFirst({

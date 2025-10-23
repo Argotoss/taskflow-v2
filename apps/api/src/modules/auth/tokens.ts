@@ -67,7 +67,8 @@ export class TokenService {
         type: params.type,
         expiresAt: params.expiresAt,
         userAgent: params.context?.userAgent,
-        ipAddress: params.context?.ipAddress
+        ipAddress: params.context?.ipAddress,
+        lastUsedAt: now()
       }
     });
   }
@@ -157,12 +158,21 @@ export class TokenService {
 
   async createPasswordResetToken(userId: string, context?: TokenContext): Promise<string> {
     const token = crypto.randomBytes(48).toString('hex');
-    await this.storeToken(this.prisma, {
-      userId,
-      tokenValue: token,
-      type: 'RESET_PASSWORD',
-      expiresAt: this.resetExpiry(),
-      context
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.authToken.deleteMany({
+        where: {
+          userId,
+          type: 'RESET_PASSWORD'
+        }
+      });
+
+      await this.storeToken(transaction, {
+        userId,
+        tokenValue: token,
+        type: 'RESET_PASSWORD',
+        expiresAt: this.resetExpiry(),
+        context
+      });
     });
     return token;
   }

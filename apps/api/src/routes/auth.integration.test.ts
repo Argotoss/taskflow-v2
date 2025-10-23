@@ -286,7 +286,8 @@ const authTokenDelete = async (args: { where: { id: string } }): Promise<AuthTok
           authToken: {
             findUnique: authTokenFindUnique,
             delete: authTokenDelete,
-            create: authTokenCreate
+            create: authTokenCreate,
+            deleteMany: authTokenDeleteMany
           }
         };
         const result = Reflect.apply(operation as Function, undefined, [transactionClient]) as unknown;

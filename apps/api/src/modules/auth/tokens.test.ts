@@ -11,6 +11,8 @@ interface AuthTokenRecord {
   expiresAt: Date;
   userAgent?: string | null;
   ipAddress?: string | null;
+  issuedAt?: Date;
+  lastUsedAt?: Date | null;
 }
 
 const hash = (value: string): string => crypto.createHash('sha256').update(value).digest('hex');
@@ -63,7 +65,8 @@ const buildAppStub = () => {
     authToken: {
       create: authTokenCreate,
       findUnique: authTokenFindUnique,
-      delete: authTokenDelete
+      delete: authTokenDelete,
+      deleteMany: authTokenDeleteMany
     }
   });
 
@@ -119,6 +122,7 @@ describe('TokenService', () => {
     expect(stored.userAgent).toBe('jest');
     expect(stored.ipAddress).toBe('127.0.0.1');
     expect(stored.type).toBe('REFRESH');
+    expect(stored.lastUsedAt).toBeInstanceOf(Date);
   });
 
   it('rotates refresh tokens and replaces stored record', async () => {
@@ -131,6 +135,7 @@ describe('TokenService', () => {
     const stored = appStub.store[0];
     expect(stored.ipAddress).toBe('192.168.1.10');
     expect(stored.tokenHash).toBe(hash(rotated!.refreshToken));
+    expect(stored.lastUsedAt).toBeInstanceOf(Date);
   });
 
   it('returns null when rotating unknown token', async () => {
@@ -164,5 +169,41 @@ describe('TokenService', () => {
   it('returns null when consuming invalid reset tokens', async () => {
     const result = await service.consumePasswordResetToken('invalid');
     expect(result).toBeNull();
+  });
+
+  it('does not allow reuse of refresh tokens after rotation', async () => {
+    const original = await service.createSession('user-6');
+    const rotated = await service.rotateSession(original.refreshToken);
+    expect(rotated).not.toBeNull();
+    const reuseAttempt = await service.rotateSession(original.refreshToken);
+    expect(reuseAttempt).toBeNull();
+    expect(appStub.store).toHaveLength(1);
+  });
+
+  it('rejects expired refresh tokens and removes them', async () => {
+    const session = await service.createSession('user-7');
+    const stored = appStub.store[0];
+    stored.expiresAt = new Date(Date.now() - 1);
+    const result = await service.rotateSession(session.refreshToken);
+    expect(result).toBeNull();
+    expect(appStub.store).toHaveLength(0);
+  });
+
+  it('replaces previous reset tokens for the same user', async () => {
+    const first = await service.createPasswordResetToken('user-8');
+    const firstHash = hash(first);
+    expect(appStub.store.length).toBe(1);
+    const second = await service.createPasswordResetToken('user-8');
+    expect(hash(second)).not.toBe(firstHash);
+    expect(appStub.store.length).toBe(1);
+    expect(appStub.store[0].tokenHash).toBe(hash(second));
+  });
+
+  it('returns null when consuming reset tokens twice', async () => {
+    const token = await service.createPasswordResetToken('user-9');
+    const initial = await service.consumePasswordResetToken(token);
+    expect(initial).toBe('user-9');
+    const second = await service.consumePasswordResetToken(token);
+    expect(second).toBeNull();
   });
 });
