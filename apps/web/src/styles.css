@@ -471,6 +471,82 @@ h1 {
   gap: 0.75rem;
   padding: 1.25rem;
   min-height: 240px;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.board-column--dragging-over {
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.6);
+  border-color: rgba(59, 130, 246, 0.55);
+}
+
+.board-column--backlog {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(8, 47, 73, 0.75));
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+.board-column--in-progress {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(30, 64, 175, 0.78));
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.board-column--review {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.85), rgba(88, 28, 135, 0.78));
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.board-column--blocked {
+  background: linear-gradient(180deg, rgba(24, 20, 37, 0.85), rgba(190, 24, 93, 0.75));
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.board-column--done {
+  background: linear-gradient(180deg, rgba(11, 36, 31, 0.85), rgba(22, 101, 52, 0.75));
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.board-column--backlog .board-column__count {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.board-column--in-progress .board-column__count {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.board-column--review .board-column__count {
+  background: rgba(168, 85, 247, 0.22);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.board-column--blocked .board-column__count {
+  background: rgba(244, 63, 94, 0.25);
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.board-column--done .board-column__count {
+  background: rgba(34, 197, 94, 0.22);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.board-column--backlog .board-column__add {
+  border-color: rgba(14, 165, 233, 0.35);
+}
+
+.board-column--in-progress .board-column__add {
+  border-color: rgba(37, 99, 235, 0.4);
+}
+
+.board-column--review .board-column__add {
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+.board-column--blocked .board-column__add {
+  border-color: rgba(244, 63, 94, 0.45);
+}
+
+.board-column--done .board-column__add {
+  border-color: rgba(34, 197, 94, 0.4);
 }
 
 .board-column__header {
@@ -577,6 +653,18 @@ h1 {
   flex-direction: column;
   gap: 0.75rem;
   box-shadow: 0 12px 30px rgba(3, 7, 18, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.board-task--dragging {
+  transform: rotate(1deg) translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.55);
+  box-shadow: 0 24px 48px rgba(3, 7, 18, 0.55);
+}
+
+.board-task--dragging select,
+.board-task--dragging button {
+  transform: none;
 }
 
 .board-task__content h3 {

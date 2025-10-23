@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { FormEvent, JSX } from 'react';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { useAuth } from '../auth/useAuth.js';
 import Modal from './Modal.js';
 import AuthPanel from '../auth/components/AuthPanel.js';
@@ -125,6 +126,45 @@ const BoardLayout = (): JSX.Element => {
     }));
   };
 
+  const handleDragEnd = ({ source, destination }: DropResult): void => {
+    if (!destination) {
+      return;
+    }
+
+    const startColumn = source.droppableId as ColumnKey;
+    const finishColumn = destination.droppableId as ColumnKey;
+
+    if (startColumn === finishColumn && source.index === destination.index) {
+      return;
+    }
+
+    setTasks((current) => {
+      const startTasks = Array.from(current[startColumn]);
+      const [movedTask] = startTasks.splice(source.index, 1);
+      if (!movedTask) {
+        return current;
+      }
+
+      if (startColumn === finishColumn) {
+        startTasks.splice(destination.index, 0, movedTask);
+        return {
+          ...current,
+          [startColumn]: startTasks
+        };
+      }
+
+      const finishTasks = Array.from(current[finishColumn]);
+      const updatedTask: Task = { ...movedTask, status: finishColumn };
+      finishTasks.splice(destination.index, 0, updatedTask);
+
+      return {
+        ...current,
+        [startColumn]: startTasks,
+        [finishColumn]: finishTasks
+      };
+    });
+  };
+
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">
@@ -180,54 +220,74 @@ const BoardLayout = (): JSX.Element => {
           </div>
         </header>
 
-        <section className="board-columns" aria-label="Workspace board">
-          {boardColumns.map((column) => (
-            <article key={column.key} className="board-column">
-              <header className="board-column__header">
-                <h2>{column.title}</h2>
-                <span className="board-column__count">{tasks[column.key].length}</span>
-              </header>
-              <p className="board-column__description">{column.description}</p>
-              {tasks[column.key].length === 0 ? (
-                <div className="board-column__empty">No tasks yet. Add one to get started.</div>
-              ) : (
-                <div className="board-column__tasks">
-                  {tasks[column.key].map((task) => (
-                    <article key={task.id} className="board-task">
-                      <div className="board-task__content">
-                        <h3>{task.title}</h3>
-                        {task.description && <p>{task.description}</p>}
-                        <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
+        <DragDropContext onDragEnd={handleDragEnd}>
+          <section className="board-columns" aria-label="Workspace board">
+            {boardColumns.map((column) => (
+              <Droppable droppableId={column.key} key={column.key}>
+                {(provided, snapshot) => (
+                  <article
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                    className={`board-column board-column--${column.key} ${snapshot.isDraggingOver ? 'board-column--dragging-over' : ''}`}
+                  >
+                    <header className="board-column__header">
+                      <h2>{column.title}</h2>
+                      <span className="board-column__count">{tasks[column.key].length}</span>
+                    </header>
+                    <p className="board-column__description">{column.description}</p>
+                    {tasks[column.key].length === 0 ? (
+                      <div className="board-column__empty">No tasks yet. Add one to get started.</div>
+                    ) : (
+                      <div className="board-column__tasks">
+                        {tasks[column.key].map((task, index) => (
+                          <Draggable draggableId={task.id} index={index} key={task.id}>
+                            {(dragProvided, dragSnapshot) => (
+                              <article
+                                ref={dragProvided.innerRef}
+                                {...dragProvided.draggableProps}
+                                {...dragProvided.dragHandleProps}
+                                className={`board-task ${dragSnapshot.isDragging ? 'board-task--dragging' : ''}`}
+                              >
+                                <div className="board-task__content">
+                                  <h3>{task.title}</h3>
+                                  {task.description && <p>{task.description}</p>}
+                                  <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
+                                </div>
+                                <div className="board-task__actions">
+                                  <label htmlFor={`status-${task.id}`}>Status</label>
+                                  <select
+                                    id={`status-${task.id}`}
+                                    value={task.status}
+                                    onChange={(event) =>
+                                      handleTaskStatusChange(task.id, column.key, event.target.value as ColumnKey)
+                                    }
+                                  >
+                                    {boardColumns.map((option) => (
+                                      <option key={option.key} value={option.key}>
+                                        {option.title}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button type="button" onClick={() => handleTaskRemove(task.id, column.key)}>
+                                    Remove
+                                  </button>
+                                </div>
+                              </article>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
                       </div>
-                      <div className="board-task__actions">
-                        <label htmlFor={`status-${task.id}`}>Status</label>
-                        <select
-                          id={`status-${task.id}`}
-                          value={task.status}
-                          onChange={(event) =>
-                            handleTaskStatusChange(task.id, column.key, event.target.value as ColumnKey)
-                          }
-                        >
-                          {boardColumns.map((option) => (
-                            <option key={option.key} value={option.key}>
-                              {option.title}
-                            </option>
-                          ))}
-                        </select>
-                        <button type="button" onClick={() => handleTaskRemove(task.id, column.key)}>
-                          Remove
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-              <button type="button" className="board-column__add" onClick={() => openTaskModal(column.key)}>
-                Add task
-              </button>
-            </article>
-          ))}
-        </section>
+                    )}
+                    <button type="button" className="board-column__add" onClick={() => openTaskModal(column.key)}>
+                      Add task
+                    </button>
+                  </article>
+                )}
+              </Droppable>
+            ))}
+          </section>
+        </DragDropContext>
       </main>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Account & Workspace">
