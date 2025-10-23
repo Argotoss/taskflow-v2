@@ -358,9 +358,17 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
     await ensureProjectAccess(app, task.projectId, userId);
 
-    await app.prisma.task.delete({
-      where: { id: params.taskId }
-    });
+    await app.prisma.$transaction([
+      app.prisma.comment.deleteMany({
+        where: { taskId: params.taskId }
+      }),
+      app.prisma.attachment.deleteMany({
+        where: { taskId: params.taskId }
+      }),
+      app.prisma.task.delete({
+        where: { id: params.taskId }
+      })
+    ]);
 
     reply.code(204);
     return null;

@@ -9,7 +9,9 @@ import type {
   Task,
   User,
   Workspace,
-  WorkspaceInvite
+  WorkspaceInvite,
+  Comment,
+  Attachment
 } from '@taskflow/db';
 import type { FastifyInstance } from 'fastify';
 import { vi } from 'vitest';
@@ -217,6 +219,8 @@ export class InMemoryPrisma {
   private readonly users = new Map<string, User>();
   private readonly preferences = new Map<string, NotificationPreference>();
   private readonly tokens = new Map<string, AuthToken>();
+  private readonly comments = new Map<string, Comment>();
+  private readonly attachments = new Map<string, Attachment>();
   private spies: Spy[] = [];
 
   reset(): void {
@@ -282,6 +286,8 @@ export class InMemoryPrisma {
       vi.spyOn(app.prisma.workspaceInvite, 'findMany').mockImplementation(this.inviteFindMany),
       vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockImplementation(this.inviteFindFirst),
       vi.spyOn(app.prisma.workspaceInvite, 'update').mockImplementation(this.inviteUpdate),
+      vi.spyOn(app.prisma.comment, 'deleteMany').mockImplementation(this.commentDeleteMany),
+      vi.spyOn(app.prisma.attachment, 'deleteMany').mockImplementation(this.attachmentDeleteMany),
       vi.spyOn(app.prisma.user, 'findUnique').mockImplementation(this.userFindUnique),
       vi.spyOn(app.prisma.user, 'create').mockImplementation(this.userCreate),
       vi.spyOn(app.prisma.user, 'update').mockImplementation(this.userUpdate),
@@ -654,6 +660,40 @@ export class InMemoryPrisma {
     }
     this.tasks.delete(existing.id);
     return cloneTask(existing);
+  };
+
+  private commentDeleteMany = async (args: Prisma.CommentDeleteManyArgs): Promise<{ count: number }> => {
+    const taskId = args.where?.taskId;
+    if (!taskId) {
+      const size = this.comments.size;
+      this.comments.clear();
+      return { count: size };
+    }
+    let count = 0;
+    for (const [id, comment] of this.comments.entries()) {
+      if (comment.taskId === taskId) {
+        this.comments.delete(id);
+        count += 1;
+      }
+    }
+    return { count };
+  };
+
+  private attachmentDeleteMany = async (args: Prisma.AttachmentDeleteManyArgs): Promise<{ count: number }> => {
+    const taskId = args.where?.taskId;
+    if (!taskId) {
+      const size = this.attachments.size;
+      this.attachments.clear();
+      return { count: size };
+    }
+    let count = 0;
+    for (const [id, attachment] of this.attachments.entries()) {
+      if (attachment.taskId === taskId) {
+        this.attachments.delete(id);
+        count += 1;
+      }
+    }
+    return { count };
   };
 
   private inviteDeleteMany = async (args: Prisma.WorkspaceInviteDeleteManyArgs): Promise<{ count: number }> => {

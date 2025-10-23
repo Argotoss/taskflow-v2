@@ -147,9 +147,23 @@ describe('task routes', () => {
     vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
       { id: taskRecord.id, projectId } as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
     );
-    vi.spyOn(app.prisma.task, 'delete').mockResolvedValue(
-      taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.delete>>
-    );
+    const deleteCommentsSpy = vi
+      .spyOn(app.prisma.comment, 'deleteMany')
+      .mockResolvedValue({ count: 2 } as unknown as Awaited<ReturnType<typeof app.prisma.comment.deleteMany>>);
+    const deleteAttachmentsSpy = vi
+      .spyOn(app.prisma.attachment, 'deleteMany')
+      .mockResolvedValue({ count: 1 } as unknown as Awaited<ReturnType<typeof app.prisma.attachment.deleteMany>>);
+    const deleteTaskSpy = vi
+      .spyOn(app.prisma.task, 'delete')
+      .mockResolvedValue(taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.delete>>);
+    vi.spyOn(app.prisma, '$transaction').mockImplementation(async (operations) => {
+      if (Array.isArray(operations)) {
+        for (const operation of operations) {
+          await operation;
+        }
+      }
+      return [] as unknown as Awaited<ReturnType<typeof app.prisma.$transaction>>;
+    });
 
     const response = await app.inject({
       method: 'DELETE',
@@ -158,5 +172,8 @@ describe('task routes', () => {
     });
 
     expect(response.statusCode).toBe(204);
+    expect(deleteCommentsSpy).toHaveBeenCalledWith({ where: { taskId: taskRecord.id } });
+    expect(deleteAttachmentsSpy).toHaveBeenCalledWith({ where: { taskId: taskRecord.id } });
+    expect(deleteTaskSpy).toHaveBeenCalledWith({ where: { id: taskRecord.id } });
   });
 });
