@@ -20,14 +20,12 @@ const Modal = ({ open, onClose, title, footer, children }: PropsWithChildren<Mod
           event.stopPropagation();
         }}
       >
-        {(title || onClose) && (
-          <header className="modal__header">
-            {typeof title === 'string' ? <h2>{title}</h2> : title}
-            <button type="button" className="modal__close" onClick={onClose} aria-label="Close">
-              ×
-            </button>
-          </header>
-        )}
+        <header className="modal__header">
+          {title ? (typeof title === 'string' ? <h2>{title}</h2> : title) : <span />}
+          <button type="button" className="modal__close" onClick={onClose} aria-label="Close">
+            ×
+          </button>
+        </header>
         <div className="modal__body">{children}</div>
         {footer && <footer className="modal__footer">{footer}</footer>}
       </div>
