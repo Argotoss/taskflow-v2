@@ -42,6 +42,10 @@ export const createWorkspaceBodySchema = z.object({
 
 export const updateWorkspaceBodySchema = createWorkspaceBodySchema.partial();
 
+export const transferWorkspaceBodySchema = z.object({
+  membershipId: uuidSchema
+});
+
 export const listWorkspaceMembersResponseSchema = z.object({
   data: membershipSummarySchema.array(),
   meta: paginatedResponseMetaSchema
@@ -98,3 +102,4 @@ export type WorkspaceSummary = z.infer<typeof workspaceSummarySchema>;
 export type MembershipSummary = z.infer<typeof membershipSummarySchema>;
 export type WorkspaceInviteSummary = z.infer<typeof workspaceInviteSummarySchema>;
 export type MembershipRole = z.infer<typeof membershipRoleSchema>;
+export type TransferWorkspaceBody = z.infer<typeof transferWorkspaceBodySchema>;

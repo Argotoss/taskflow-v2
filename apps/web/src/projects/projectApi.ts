@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   createProjectBodySchema,
+  updateProjectBodySchema,
   listProjectsResponseSchema,
   projectSummarySchema,
   type ProjectSummary
@@ -29,6 +30,20 @@ export const projectApi = {
     const body = createProjectBodySchema.parse(payload);
     const response = await request(`/workspaces/${workspaceId}/projects`, {
       method: 'POST',
+      headers: authorizationHeaders(token),
+      body: serializeBody(body)
+    }, projectResponseSchema);
+    return response.data;
+  },
+  async update(
+    accessToken: string | null,
+    projectId: string,
+    payload: z.infer<typeof updateProjectBodySchema>
+  ): Promise<ProjectSummary> {
+    const token = requireAccessToken(accessToken);
+    const body = updateProjectBodySchema.parse(payload);
+    const response = await request(`/projects/${projectId}`, {
+      method: 'PATCH',
       headers: authorizationHeaders(token),
       body: serializeBody(body)
     }, projectResponseSchema);

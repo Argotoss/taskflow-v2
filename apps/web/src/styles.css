@@ -1580,6 +1580,65 @@ h1 {
   gap: 0.2rem;
 }
 
+.workspace-projects {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.workspace-projects__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.workspace-projects__item:last-child {
+  border-bottom: none;
+}
+
+.workspace-projects__info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.workspace-projects__info input {
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.8rem;
+  min-width: 0;
+}
+
+.workspace-projects__badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(148, 163, 184, 0.18);
+  color: rgba(148, 163, 184, 0.95);
+}
+
+.workspace-projects__badge--archived {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+.workspace-projects__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 @media (max-width: 640px) {
   .page {
     padding: 2.5rem 1.2rem 3.5rem;

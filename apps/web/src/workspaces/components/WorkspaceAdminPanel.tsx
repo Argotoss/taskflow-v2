@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX, FormEvent } from 'react';
-import type { MembershipSummary, WorkspaceSummary, WorkspaceInviteSummary } from '@taskflow/types';
+import type { MembershipSummary, WorkspaceSummary, WorkspaceInviteSummary, ProjectSummary } from '@taskflow/types';
 import { membershipRoleSchema } from '@taskflow/types';
 import { workspaceApi } from '../workspaceApi.js';
+import { projectApi } from '../../projects/projectApi.js';
 import { ApiError } from '../../api/httpClient.js';
 
 type MembershipRole = (typeof membershipRoleSchema)['options'][number];
@@ -51,9 +52,25 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   const [workspaceSubmitting, setWorkspaceSubmitting] = useState(false);
   const [workspaceError, setWorkspaceError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [editWorkspaceName, setEditWorkspaceName] = useState('');
+  const [editWorkspaceDescription, setEditWorkspaceDescription] = useState('');
+  const [workspaceUpdating, setWorkspaceUpdating] = useState(false);
+  const [workspaceUpdateError, setWorkspaceUpdateError] = useState('');
+  const [workspaceUpdateStatus, setWorkspaceUpdateStatus] = useState('');
+  const [transferMembershipId, setTransferMembershipId] = useState('');
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferError, setTransferError] = useState('');
+  const [transferStatus, setTransferStatus] = useState('');
+  const [projectNameEdits, setProjectNameEdits] = useState<Record<string, string>>({});
+  const [projectSaving, setProjectSaving] = useState<Record<string, boolean>>({});
+  const [projectStatusMessage, setProjectStatusMessage] = useState('');
+  const [projectError, setProjectError] = useState('');
 
   const currentMembership = useMemo(() => members.find((member) => member.userId === currentUserId), [currentUserId, members]);
-  const canInvite = currentMembership ? currentMembership.role === 'OWNER' || currentMembership.role === 'ADMIN' : false;
+  const canManageWorkspaceSettings = currentMembership ? currentMembership.role === 'OWNER' || currentMembership.role === 'ADMIN' : false;
+  const canManageProjects = currentMembership ? currentMembership.role === 'OWNER' || currentMembership.role === 'ADMIN' || currentMembership.role === 'CONTRIBUTOR' : false;
+  const canInvite = canManageWorkspaceSettings;
   const isOwner = currentMembership?.role === 'OWNER';
 
   const slugify = useCallback((value: string) => {
@@ -68,6 +85,11 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   const clearWorkspaceState = (): void => {
     setMembers([]);
     setInvites([]);
+    setProjects([]);
+    setProjectNameEdits({});
+    setProjectSaving({});
+    setProjectStatusMessage('');
+    setProjectError('');
   };
 
   const loadWorkspaceData = useCallback(
@@ -75,17 +97,33 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
       setMembersLoading(true);
       setMemberError('');
       setMemberNotice('');
-      try {
-        const [memberList, inviteList] = await Promise.all([workspaceApi.members(token, workspaceId), workspaceApi.invites(token, workspaceId)]);
-        setMembers(memberList);
-        setInvites(inviteList);
-      } catch (exception) {
-        const message = exception instanceof ApiError ? exception.message : 'Failed to load workspace access data';
+      setProjectError('');
+      setProjectStatusMessage('');
+      const [memberResult, inviteResult, projectResult] = await Promise.allSettled([
+        workspaceApi.members(token, workspaceId),
+        workspaceApi.invites(token, workspaceId),
+        projectApi.list(token, workspaceId)
+      ]);
+      const membershipFailed = memberResult.status === 'rejected' || inviteResult.status === 'rejected';
+      if (!membershipFailed) {
+        setMembers(memberResult.value);
+        setInvites(inviteResult.value);
+      } else {
+        const reason = memberResult.status === 'rejected' ? memberResult.reason : inviteResult.status === 'rejected' ? inviteResult.reason : null;
+        const message =
+          reason instanceof ApiError ? reason.message : 'Failed to load workspace access data';
         setMemberError(message);
-        clearWorkspaceState();
-      } finally {
-        setMembersLoading(false);
+        setMembers([]);
+        setInvites([]);
       }
+      if (projectResult.status === 'fulfilled') {
+        setProjects(projectResult.value);
+      } else {
+        const message = projectResult.reason instanceof ApiError ? projectResult.reason.message : 'Failed to load projects';
+        setProjectError(message);
+        setProjects([]);
+      }
+      setMembersLoading(false);
     },
     []
   );
@@ -146,6 +184,45 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
     }
     void loadWorkspaceData(selectedWorkspaceId, accessToken);
   }, [accessToken, loadWorkspaceData, selectedWorkspaceId]);
+
+  useEffect(() => {
+    const selected = workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null;
+    if (selected) {
+      setEditWorkspaceName(selected.name);
+      setEditWorkspaceDescription(selected.description ?? '');
+    } else {
+      setEditWorkspaceName('');
+      setEditWorkspaceDescription('');
+    }
+    setWorkspaceUpdateError('');
+    setWorkspaceUpdateStatus('');
+    setTransferError('');
+    setTransferStatus('');
+    setTransferMembershipId('');
+  }, [selectedWorkspaceId, workspaces]);
+
+  useEffect(() => {
+    const entries: Record<string, string> = {};
+    projects.forEach((project) => {
+      entries[project.id] = project.name;
+    });
+    setProjectNameEdits(entries);
+    setProjectSaving({});
+    setProjectError('');
+    setProjectStatusMessage('');
+  }, [projects]);
+
+  useEffect(() => {
+    if (!isOwner) {
+      setTransferMembershipId('');
+      return;
+    }
+    if (transferMembershipId && members.some((member) => member.id === transferMembershipId)) {
+      return;
+    }
+    const candidate = members.find((member) => member.userId !== currentUserId && member.role !== 'OWNER');
+    setTransferMembershipId(candidate ? candidate.id : '');
+  }, [currentUserId, isOwner, members, transferMembershipId]);
 
   const handleInviteSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -224,6 +301,146 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
     } catch (exception) {
       const message = exception instanceof ApiError ? exception.message : 'Unable to revoke invite';
       setInviteError(message);
+    }
+  };
+
+  const handleWorkspaceUpdate = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!accessToken || !selectedWorkspaceId) {
+      return;
+    }
+    if (!canManageWorkspaceSettings) {
+      return;
+    }
+    const selected = workspaces.find((workspace) => workspace.id === selectedWorkspaceId);
+    if (!selected) {
+      return;
+    }
+    const trimmedName = editWorkspaceName.trim();
+    const trimmedDescription = editWorkspaceDescription.trim();
+    if (trimmedName.length === 0) {
+      setWorkspaceUpdateError('Workspace name is required');
+      setWorkspaceUpdateStatus('');
+      return;
+    }
+    const payload: Record<string, unknown> = {};
+    if (trimmedName !== selected.name) {
+      payload.name = trimmedName;
+    }
+    const currentDescription = selected.description ?? '';
+    if (trimmedDescription !== currentDescription) {
+      payload.description = trimmedDescription.length === 0 ? null : trimmedDescription;
+    }
+    if (Object.keys(payload).length === 0) {
+      setWorkspaceUpdateStatus('No changes to save');
+      setWorkspaceUpdateError('');
+      return;
+    }
+    setWorkspaceUpdating(true);
+    setWorkspaceUpdateError('');
+    setWorkspaceUpdateStatus('');
+    try {
+      const updated = await workspaceApi.update(accessToken, selectedWorkspaceId, payload);
+      setWorkspaces((current) => current.map((workspace) => (workspace.id === updated.id ? updated : workspace)));
+      setEditWorkspaceName(updated.name);
+      setEditWorkspaceDescription(updated.description ?? '');
+      setWorkspaceUpdateStatus('Workspace updated');
+    } catch (exception) {
+      const message = exception instanceof ApiError ? exception.message : 'Unable to update workspace';
+      setWorkspaceUpdateError(message);
+    } finally {
+      setWorkspaceUpdating(false);
+    }
+  };
+
+  const handleTransferOwnership = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!accessToken || !selectedWorkspaceId) {
+      return;
+    }
+    if (!transferMembershipId) {
+      setTransferError('Select a member to transfer ownership to');
+      setTransferStatus('');
+      return;
+    }
+    setTransferSubmitting(true);
+    setTransferError('');
+    setTransferStatus('');
+    try {
+      const updated = await workspaceApi.transfer(accessToken, selectedWorkspaceId, transferMembershipId);
+      setWorkspaces((current) => current.map((workspace) => (workspace.id === updated.id ? updated : workspace)));
+      await loadWorkspaceData(selectedWorkspaceId, accessToken);
+      setTransferStatus('Ownership transferred');
+    } catch (exception) {
+      const message = exception instanceof ApiError ? exception.message : 'Unable to transfer ownership';
+      setTransferError(message);
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
+  const handleProjectRename = async (projectId: string): Promise<void> => {
+    if (!accessToken) {
+      return;
+    }
+    if (!canManageProjects) {
+      return;
+    }
+    const project = projects.find((entry) => entry.id === projectId);
+    if (!project) {
+      return;
+    }
+    const proposedName = (projectNameEdits[projectId] ?? '').trim();
+    if (proposedName.length === 0) {
+      setProjectError('Project name is required');
+      setProjectStatusMessage('');
+      return;
+    }
+    if (proposedName === project.name) {
+      setProjectStatusMessage('No changes to save');
+      setProjectError('');
+      return;
+    }
+    setProjectSaving((current) => ({ ...current, [projectId]: true }));
+    setProjectError('');
+    setProjectStatusMessage('');
+    try {
+      const updated = await projectApi.update(accessToken, projectId, { name: proposedName });
+      setProjects((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setProjectNameEdits((current) => ({ ...current, [projectId]: updated.name }));
+      setProjectStatusMessage('Project updated');
+    } catch (exception) {
+      const message = exception instanceof ApiError ? exception.message : 'Unable to update project';
+      setProjectError(message);
+    } finally {
+      setProjectSaving((current) => ({ ...current, [projectId]: false }));
+    }
+  };
+
+  const handleProjectStatusChange = async (projectId: string, nextStatus: ProjectSummary['status']): Promise<void> => {
+    if (!accessToken) {
+      return;
+    }
+    if (!canManageProjects) {
+      return;
+    }
+    const project = projects.find((entry) => entry.id === projectId);
+    if (!project || project.status === nextStatus) {
+      return;
+    }
+    setProjectSaving((current) => ({ ...current, [projectId]: true }));
+    setProjectError('');
+    setProjectStatusMessage('');
+    try {
+      const updated = await projectApi.update(accessToken, projectId, { status: nextStatus });
+      setProjects((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
+      setProjectNameEdits((current) => ({ ...current, [projectId]: updated.name }));
+      setProjectStatusMessage(nextStatus === 'ARCHIVED' ? 'Project archived' : 'Project restored');
+    } catch (exception) {
+      const message = exception instanceof ApiError ? exception.message : 'Unable to update project';
+      setProjectError(message);
+    } finally {
+      setProjectSaving((current) => ({ ...current, [projectId]: false }));
     }
   };
 
@@ -383,6 +600,124 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
       {workspaces.length > 0 && !showCreate && (
         <>
+          <div className="workspace-section">
+            <h4>Workspace settings</h4>
+            {workspaceUpdateError && <div className="workspace-card__error">{workspaceUpdateError}</div>}
+            {workspaceUpdateStatus && <div className="workspace-card__status">{workspaceUpdateStatus}</div>}
+            {!canManageWorkspaceSettings && <p className="workspace-card__notice">Only workspace owners or admins can update workspace details.</p>}
+            <form className="workspace-create" onSubmit={handleWorkspaceUpdate}>
+              <label className="workspace-create__field">
+                <span>Name</span>
+                <input
+                  value={editWorkspaceName}
+                  onChange={(event) => setEditWorkspaceName(event.target.value)}
+                  disabled={!canManageWorkspaceSettings || workspaceUpdating}
+                  required
+                />
+              </label>
+              <label className="workspace-create__field">
+                <span>Description</span>
+                <textarea
+                  value={editWorkspaceDescription}
+                  onChange={(event) => setEditWorkspaceDescription(event.target.value)}
+                  disabled={!canManageWorkspaceSettings || workspaceUpdating}
+                />
+              </label>
+              <div className="workspace-create__actions">
+                <button className="workspace-button" type="submit" disabled={!canManageWorkspaceSettings || workspaceUpdating}>
+                  {workspaceUpdating ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div className="workspace-section">
+            <h4>Ownership</h4>
+            {!isOwner && <p className="workspace-card__notice">Only the current owner can transfer the workspace.</p>}
+            {transferError && <div className="workspace-card__error">{transferError}</div>}
+            {transferStatus && <div className="workspace-card__status">{transferStatus}</div>}
+            {isOwner ? (
+              members.length <= 1 ? (
+                <p className="workspace-card__notice">Invite another member before transferring ownership.</p>
+              ) : (
+                <form className="workspace-invite" onSubmit={handleTransferOwnership}>
+                  <select
+                    value={transferMembershipId}
+                    onChange={(event) => setTransferMembershipId(event.target.value)}
+                    disabled={transferSubmitting}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select new owner
+                    </option>
+                    {members
+                      .filter((member) => member.userId !== currentUserId)
+                      .map((member) => (
+                        <option key={member.id} value={member.id}>
+                          {member.user.name ?? member.user.email} ({roleLabels[member.role]})
+                        </option>
+                      ))}
+                  </select>
+                  <button type="submit" className="workspace-button" disabled={transferSubmitting || !transferMembershipId}>
+                    {transferSubmitting ? 'Transferring…' : 'Transfer ownership'}
+                  </button>
+                </form>
+              )
+            ) : null}
+          </div>
+
+          <div className="workspace-section">
+            <h4>Projects</h4>
+            {!canManageProjects && <p className="workspace-card__notice">Only owners, admins, or contributors can update projects.</p>}
+            {projectError && <div className="workspace-card__error">{projectError}</div>}
+            {projectStatusMessage && <div className="workspace-card__status">{projectStatusMessage}</div>}
+            {projects.length === 0 ? (
+              <p className="workspace-card__notice">No projects yet. Create one to organize tasks.</p>
+            ) : (
+              <ul className="workspace-projects">
+                {projects.map((project) => {
+                  const editName = projectNameEdits[project.id] ?? project.name;
+                  const saving = projectSaving[project.id] ?? false;
+                  const isArchived = project.status === 'ARCHIVED';
+                  return (
+                    <li key={project.id} className="workspace-projects__item">
+                      <div className="workspace-projects__info">
+                        <input
+                          value={editName}
+                          onChange={(event) =>
+                            setProjectNameEdits((current) => ({ ...current, [project.id]: event.target.value }))
+                          }
+                          disabled={!canManageProjects || saving}
+                        />
+                        <span className={`workspace-projects__badge workspace-projects__badge--${project.status.toLowerCase()}`}>
+                          {project.status.toLowerCase() === 'archived' ? 'Archived' : 'Active'}
+                        </span>
+                      </div>
+                      <div className="workspace-projects__actions">
+                        <button
+                          type="button"
+                          className="workspace-button workspace-button--ghost"
+                          onClick={() => void handleProjectRename(project.id)}
+                          disabled={!canManageProjects || saving}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          className="workspace-button workspace-button--ghost"
+                          onClick={() => void handleProjectStatusChange(project.id, isArchived ? 'ACTIVE' : 'ARCHIVED')}
+                          disabled={!canManageProjects || saving}
+                        >
+                          {isArchived ? 'Restore' : 'Archive'}
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
           {membersLoading ? (
             <p className="workspace-card__notice">Loading members…</p>
           ) : (

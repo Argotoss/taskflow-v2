@@ -64,6 +64,51 @@ describe('workspaceApi', () => {
     );
   });
 
+  it('updates workspace details', async () => {
+    const workspace: WorkspaceSummary = {
+      id: '33333333-3333-3333-3333-333333333333',
+      name: 'Renamed Workspace',
+      slug: 'renamed-workspace',
+      description: 'Updated description',
+      ownerId: '00000000-0000-0000-0000-000000000000',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    fetchMock().mockResolvedValue(buildFetchResponse({ data: workspace }));
+
+    const response = await workspaceApi.update(accessToken, workspace.id, {
+      name: workspace.name,
+      description: workspace.description
+    });
+
+    expect(response).toEqual(workspace);
+    expect(fetch).toHaveBeenCalledWith(
+      `http://localhost:3000/workspaces/${workspace.id}`,
+      expect.objectContaining({ method: 'PATCH' })
+    );
+  });
+
+  it('transfers workspace ownership', async () => {
+    const workspace: WorkspaceSummary = {
+      id: '44444444-4444-4444-4444-444444444444',
+      name: 'Demo Workspace',
+      slug: 'demo-workspace',
+      description: null,
+      ownerId: '11111111-1111-1111-1111-111111111111',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    fetchMock().mockResolvedValue(buildFetchResponse({ data: workspace }));
+
+    const response = await workspaceApi.transfer(accessToken, workspace.id, '55555555-5555-5555-5555-555555555555');
+
+    expect(response).toEqual(workspace);
+    expect(fetch).toHaveBeenCalledWith(
+      `http://localhost:3000/workspaces/${workspace.id}/transfer`,
+      expect.objectContaining({ method: 'POST' })
+    );
+  });
+
   it('creates an invite and returns token', async () => {
     fetchMock().mockResolvedValue(
       buildFetchResponse({ data: { token: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' } })

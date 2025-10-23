@@ -2,16 +2,16 @@
 import crypto from 'node:crypto';
 import { Prisma } from '@taskflow/db';
 import type {
+  Attachment,
   AuthToken,
+  Comment,
   Membership,
   NotificationPreference,
   Project,
   Task,
   User,
   Workspace,
-  WorkspaceInvite,
-  Comment,
-  Attachment
+  WorkspaceInvite
 } from '@taskflow/db';
 import type { FastifyInstance } from 'fastify';
 import { vi } from 'vitest';
@@ -215,12 +215,12 @@ export class InMemoryPrisma {
   private readonly memberships = new Map<string, Membership>();
   private readonly projects = new Map<string, Project>();
   private readonly tasks = new Map<string, Task>();
+  private readonly comments = new Map<string, Comment>();
+  private readonly attachments = new Map<string, Attachment>();
   private readonly invites = new Map<string, WorkspaceInvite>();
   private readonly users = new Map<string, User>();
   private readonly preferences = new Map<string, NotificationPreference>();
   private readonly tokens = new Map<string, AuthToken>();
-  private readonly comments = new Map<string, Comment>();
-  private readonly attachments = new Map<string, Attachment>();
   private spies: Spy[] = [];
 
   reset(): void {
@@ -228,6 +228,8 @@ export class InMemoryPrisma {
     this.memberships.clear();
     this.projects.clear();
     this.tasks.clear();
+    this.comments.clear();
+    this.attachments.clear();
     this.invites.clear();
     this.preferences.clear();
     this.tokens.clear();
@@ -265,6 +267,8 @@ export class InMemoryPrisma {
       vi.spyOn(app.prisma.membership, 'findMany').mockImplementation(this.membershipFindMany),
       vi.spyOn(app.prisma.membership, 'count').mockImplementation(this.membershipCount),
       vi.spyOn(app.prisma.membership, 'findFirst').mockImplementation(this.membershipFindFirst),
+      vi.spyOn(app.prisma.membership, 'findUnique').mockImplementation(this.membershipFindUnique),
+      vi.spyOn(app.prisma.membership, 'update').mockImplementation(this.membershipUpdate),
       vi.spyOn(app.prisma.membership, 'create').mockImplementation(this.memberCreate),
       vi.spyOn(app.prisma.membership, 'upsert').mockImplementation(this.memberUpsert),
       vi.spyOn(app.prisma.project, 'findMany').mockImplementation(this.projectFindMany),
@@ -355,12 +359,22 @@ export class InMemoryPrisma {
     if (!existing) {
       throw new Error('Workspace not found');
     }
+    let ownerId = existing.ownerId;
+    if (Object.prototype.hasOwnProperty.call(args.data, 'ownerId')) {
+      const value = args.data.ownerId as unknown;
+      if (typeof value === 'string') {
+        ownerId = value;
+      } else if (value && typeof value === 'object' && 'set' in value) {
+        ownerId = (value as { set: string }).set;
+      }
+    }
     const updated = {
       ...existing,
       name: args.data.name ?? existing.name,
       description: Object.prototype.hasOwnProperty.call(args.data, 'description') ?
         (args.data.description as string | null | undefined) ?? null :
         existing.description,
+      ownerId,
       updatedAt: now()
     };
     this.workspaces.set(updated.id, updated);
@@ -412,6 +426,58 @@ export class InMemoryPrisma {
     const context: MembershipContext = { workspaces: this.workspaces, users: this.users };
     const match = Array.from(this.memberships.values()).find((record) => matchMembership(args.where, record, context));
     return match ? cloneMembership(match) : null;
+  };
+
+  private membershipFindUnique = async (args: Prisma.MembershipFindUniqueArgs): Promise<Membership | null> => {
+    if (!args.where) {
+      return null;
+    }
+    if (args.where.id) {
+      const match = this.memberships.get(args.where.id);
+      return match ? cloneMembership(match) : null;
+    }
+    if (args.where.workspaceId_userId) {
+      const composite = args.where.workspaceId_userId;
+      const match = Array.from(this.memberships.values()).find(
+        (record) => record.workspaceId === composite.workspaceId && record.userId === composite.userId
+      );
+      return match ? cloneMembership(match) : null;
+    }
+    return null;
+  };
+
+  private membershipUpdate = async (args: Prisma.MembershipUpdateArgs): Promise<Membership> => {
+    const locateByComposite = (): Membership | undefined => {
+      if (!args.where.workspaceId_userId) {
+        return undefined;
+      }
+      const composite = args.where.workspaceId_userId;
+      return Array.from(this.memberships.values()).find(
+        (record) => record.workspaceId === composite.workspaceId && record.userId === composite.userId
+      );
+    };
+    const existing =
+      (args.where.id ? this.memberships.get(args.where.id) : undefined) ?? locateByComposite();
+    if (!existing) {
+      throw new Error('Membership not found');
+    }
+    let role = existing.role;
+    if (Object.prototype.hasOwnProperty.call(args.data, 'role')) {
+      const value = args.data.role as unknown;
+      if (typeof value === 'string') {
+        role = value as Membership['role'];
+      } else if (value && typeof value === 'object' && 'set' in value) {
+        const setter = value as { set: Membership['role'] };
+        role = setter.set;
+      }
+    }
+    const updated: Membership = {
+      ...existing,
+      role,
+      updatedAt: now()
+    };
+    this.memberships.set(updated.id, updated);
+    return cloneMembership(updated);
   };
 
   private memberCreate = async (args: Prisma.MembershipCreateArgs): Promise<Membership> => {
@@ -661,7 +727,6 @@ export class InMemoryPrisma {
     this.tasks.delete(existing.id);
     return cloneTask(existing);
   };
-
   private commentDeleteMany = async (args: Prisma.CommentDeleteManyArgs): Promise<{ count: number }> => {
     const taskId = args.where?.taskId;
     if (!taskId) {
@@ -935,6 +1000,8 @@ export class InMemoryPrisma {
         findMany: this.membershipFindMany,
         count: this.membershipCount,
         findFirst: this.membershipFindFirst,
+        findUnique: this.membershipFindUnique,
+        update: this.membershipUpdate,
         create: this.memberCreate,
         upsert: this.memberUpsert
       },
@@ -955,6 +1022,12 @@ export class InMemoryPrisma {
         findUnique: this.taskFindUnique,
         update: this.taskUpdate,
         delete: this.taskDelete
+      },
+      comment: {
+        deleteMany: this.commentDeleteMany
+      },
+      attachment: {
+        deleteMany: this.attachmentDeleteMany
       },
       workspaceInvite: {
         deleteMany: this.inviteDeleteMany,

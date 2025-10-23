@@ -6,6 +6,8 @@ import {
   inviteMemberBodySchema,
   updateMembershipBodySchema,
   createWorkspaceBodySchema,
+  updateWorkspaceBodySchema,
+  transferWorkspaceBodySchema,
   workspaceSummarySchema,
   type WorkspaceSummary,
   type MembershipSummary,
@@ -41,6 +43,26 @@ export const workspaceApi = {
     const token = requireAccessToken(accessToken);
     const body = createWorkspaceBodySchema.parse(payload);
     const response = await request('/workspaces', {
+      method: 'POST',
+      headers: authorizationHeaders(token),
+      body: serializeBody(body)
+    }, workspaceResponseSchema);
+    return response.data;
+  },
+  async update(accessToken: string | null, workspaceId: string, payload: z.infer<typeof updateWorkspaceBodySchema>): Promise<WorkspaceSummary> {
+    const token = requireAccessToken(accessToken);
+    const body = updateWorkspaceBodySchema.parse(payload);
+    const response = await request(`/workspaces/${workspaceId}`, {
+      method: 'PATCH',
+      headers: authorizationHeaders(token),
+      body: serializeBody(body)
+    }, workspaceResponseSchema);
+    return response.data;
+  },
+  async transfer(accessToken: string | null, workspaceId: string, membershipId: string): Promise<WorkspaceSummary> {
+    const token = requireAccessToken(accessToken);
+    const body = transferWorkspaceBodySchema.parse({ membershipId });
+    const response = await request(`/workspaces/${workspaceId}/transfer`, {
       method: 'POST',
       headers: authorizationHeaders(token),
       body: serializeBody(body)

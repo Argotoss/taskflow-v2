@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Prisma } from '@taskflow/db';
 import { buildApp } from '../app.js';
 import {
   buildMembership,
@@ -132,6 +133,173 @@ describe('workspace routes', () => {
     });
 
     expect(response.statusCode).toBe(403);
+  });
+
+  it('transfers workspace ownership', async () => {
+    const actorMembership = buildMembership({
+      id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      workspaceId: workspaceRecord.id,
+      userId,
+      role: 'OWNER'
+    });
+    const targetMembership = buildMembership({
+      id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      workspaceId: workspaceRecord.id,
+      userId: '99999999-9999-9999-9999-999999999999',
+      role: 'ADMIN'
+    });
+
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(actorMembership as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
+    vi.spyOn(app.prisma.membership, 'findUnique').mockResolvedValue(targetMembership as unknown as Awaited<ReturnType<typeof app.prisma.membership.findUnique>>);
+
+    const workspaceUpdate = vi.fn().mockResolvedValue({ ...workspaceRecord, ownerId: targetMembership.userId });
+    const membershipUpdate = vi.fn().mockResolvedValue(targetMembership);
+
+    vi.spyOn(app.prisma, '$transaction').mockImplementation(async (callback) => {
+      await callback({
+        workspace: {
+          update: workspaceUpdate
+        },
+        membership: {
+          update: membershipUpdate
+        }
+      } as unknown as Prisma.TransactionClient);
+      return [] as unknown as Awaited<ReturnType<typeof app.prisma.$transaction>>;
+    });
+
+    vi.spyOn(app.prisma.workspace, 'findUniqueOrThrow').mockResolvedValue({
+      ...workspaceRecord,
+      ownerId: targetMembership.userId
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/workspaces/${workspaceRecord.id}/transfer`,
+      headers: authHeaders(),
+      payload: {
+        membershipId: targetMembership.id
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(workspaceUpdate).toHaveBeenCalledWith({
+      where: { id: workspaceRecord.id },
+      data: { ownerId: targetMembership.userId }
+    });
+    expect(membershipUpdate).toHaveBeenCalledWith({
+      where: { id: targetMembership.id },
+        data: { role: 'OWNER' }
+    });
+    expect(membershipUpdate).toHaveBeenCalledWith({
+      where: { id: actorMembership.id },
+      data: { role: 'ADMIN' }
+    });
+  });
+
+  it('rejects ownership transfer for non-owners', async () => {
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'ADMIN'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/workspaces/${workspaceRecord.id}/transfer`,
+      headers: authHeaders(),
+      payload: {
+        membershipId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+      }
+    });
+
+    expect(response.statusCode).toBe(403);
+  });
+
+  it('returns not found when membership is missing', async () => {
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'mem-owner',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'OWNER'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
+    );
+    vi.spyOn(app.prisma.membership, 'findUnique').mockResolvedValue(null);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/workspaces/${workspaceRecord.id}/transfer`,
+      headers: authHeaders(),
+      payload: {
+        membershipId: 'dddddddd-dddd-dddd-dddd-dddddddddddd'
+      }
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it('rejects transfer when membership belongs to another workspace', async () => {
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(
+      buildMembership({
+        id: 'mem-owner',
+        workspaceId: workspaceRecord.id,
+        userId,
+        role: 'OWNER'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>
+    );
+    vi.spyOn(app.prisma.membership, 'findUnique').mockResolvedValue(
+      buildMembership({
+        id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        workspaceId: '33333333-3333-3333-3333-333333333333',
+        userId: '99999999-9999-9999-9999-999999999999',
+        role: 'ADMIN'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.findUnique>>
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/workspaces/${workspaceRecord.id}/transfer`,
+      headers: authHeaders(),
+      payload: {
+        membershipId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee'
+      }
+    });
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it('supports transferring ownership to the current owner', async () => {
+    const membership = buildMembership({
+      id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      workspaceId: workspaceRecord.id,
+      userId,
+      role: 'OWNER'
+    });
+
+    vi.spyOn(app.prisma.membership, 'findFirst').mockResolvedValue(membership as unknown as Awaited<ReturnType<typeof app.prisma.membership.findFirst>>);
+    vi.spyOn(app.prisma.membership, 'findUnique').mockResolvedValue(membership as unknown as Awaited<ReturnType<typeof app.prisma.membership.findUnique>>);
+
+    const workspaceUpdate = vi.spyOn(app.prisma.workspace, 'update').mockResolvedValue(workspaceRecord);
+    const membershipUpdate = vi.spyOn(app.prisma.membership, 'update');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/workspaces/${workspaceRecord.id}/transfer`,
+      headers: authHeaders(),
+      payload: {
+        membershipId: membership.id
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(workspaceUpdate).toHaveBeenCalledWith({
+      where: { id: workspaceRecord.id },
+      data: { ownerId: membership.userId }
+    });
+    expect(membershipUpdate).not.toHaveBeenCalled();
   });
 
   it('lists workspace members', async () => {

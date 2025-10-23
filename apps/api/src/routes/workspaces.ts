@@ -9,6 +9,7 @@ import {
   membershipSummarySchema,
   updateMembershipBodySchema,
   updateWorkspaceBodySchema,
+  transferWorkspaceBodySchema,
   workspaceInviteParamsSchema,
   workspaceInviteSummarySchema,
   listWorkspaceInvitesResponseSchema,
@@ -398,6 +399,71 @@ export const registerWorkspaceRoutes = async (app: FastifyInstance): Promise<voi
 
     reply.code(204);
     return null;
+  });
+
+  app.post('/workspaces/:workspaceId/transfer', async (request) => {
+    const userId = await requireUserId(request);
+    const params = workspaceParamsSchema.parse(request.params);
+    const body = transferWorkspaceBodySchema.parse(request.body);
+
+    const actor = await app.prisma.membership.findFirst({
+      where: {
+        workspaceId: params.workspaceId,
+        userId
+      }
+    });
+
+    if (!actor || actor.role !== 'OWNER') {
+      throw app.httpErrors.forbidden('Only workspace owners can transfer ownership');
+    }
+
+    const targetMembership = await app.prisma.membership.findUnique({
+      where: { id: body.membershipId }
+    });
+
+    if (!targetMembership || targetMembership.workspaceId !== params.workspaceId) {
+      throw app.httpErrors.notFound('Membership not found');
+    }
+
+    if (targetMembership.userId === actor.userId) {
+      const workspace = await app.prisma.workspace.update({
+        where: { id: params.workspaceId },
+        data: {
+          ownerId: targetMembership.userId
+        }
+      });
+
+      return { data: serializeWorkspace(workspace) };
+    }
+
+    await app.prisma.$transaction(async (tx) => {
+      await tx.workspace.update({
+        where: { id: params.workspaceId },
+        data: {
+          ownerId: targetMembership.userId
+        }
+      });
+
+      await tx.membership.update({
+        where: { id: targetMembership.id },
+        data: {
+          role: 'OWNER'
+        }
+      });
+
+      await tx.membership.update({
+        where: { id: actor.id },
+        data: {
+          role: 'ADMIN'
+        }
+      });
+    });
+
+    const workspace = await app.prisma.workspace.findUniqueOrThrow({
+      where: { id: params.workspaceId }
+    });
+
+    return { data: serializeWorkspace(workspace) };
   });
 
   app.patch('/workspaces/:workspaceId/members/:membershipId', async (request) => {
