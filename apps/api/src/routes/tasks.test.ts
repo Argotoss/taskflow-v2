@@ -13,6 +13,7 @@ const taskRecord = buildTaskSummary({
   creatorId: userId,
   assigneeId: userId,
   title: 'Design spec',
+  description: 'Details',
   status: 'TODO',
   priority: 'HIGH',
   sortOrder: new Prisma.Decimal(1),
@@ -67,6 +68,9 @@ describe('task routes', () => {
 
   it('creates a task', async () => {
     mockProjectAccess();
+    vi.spyOn(app.prisma.task, 'aggregate').mockResolvedValue(
+      { _max: { sortOrder: null } } as unknown as Awaited<ReturnType<typeof app.prisma.task.aggregate>>
+    );
     vi.spyOn(app.prisma.task, 'create').mockResolvedValue(
       taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.create>>
     );
@@ -108,8 +112,11 @@ describe('task routes', () => {
 
   it('reorders tasks', async () => {
     mockProjectAccess();
-    vi.spyOn(app.prisma.task, 'update').mockResolvedValue(
-      taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.update>>
+    vi.spyOn(app.prisma.task, 'findMany').mockResolvedValue(
+      [{ id: taskRecord.id }] as unknown as Awaited<ReturnType<typeof app.prisma.task.findMany>>
+    );
+    vi.spyOn(app.prisma.task, 'updateMany').mockResolvedValue(
+      { count: 1 } as unknown as Awaited<ReturnType<typeof app.prisma.task.updateMany>>
     );
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (operations) => {
       if (Array.isArray(operations)) {
@@ -123,10 +130,33 @@ describe('task routes', () => {
       url: `/projects/${projectId}/tasks/reorder`,
       headers: authHeaders(),
       payload: {
-        taskIds: [taskRecord.id]
+        columns: [
+          {
+            status: 'TODO',
+            taskIds: [taskRecord.id]
+          }
+        ]
       }
     });
 
     expect(response.statusCode).toBe(200);
+  });
+
+  it('deletes a task', async () => {
+    mockProjectAccess();
+    vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
+      { id: taskRecord.id, projectId } as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
+    );
+    vi.spyOn(app.prisma.task, 'delete').mockResolvedValue(
+      taskRecord as unknown as Awaited<ReturnType<typeof app.prisma.task.delete>>
+    );
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/tasks/${taskRecord.id}`,
+      headers: authHeaders()
+    });
+
+    expect(response.statusCode).toBe(204);
   });
 });

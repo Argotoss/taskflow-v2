@@ -33,6 +33,7 @@ export type TaskSummaryRecord = Prisma.TaskGetPayload<{
     creatorId: true;
     assigneeId: true;
     title: true;
+    description: true;
     status: true;
     priority: true;
     sortOrder: true;
@@ -211,6 +212,7 @@ export const buildTaskSummary = (overrides: Partial<TaskSummaryRecord> = {}): Ta
   creatorId: overrides.creatorId ?? '00000000-0000-0000-0000-000000000000',
   assigneeId: Object.prototype.hasOwnProperty.call(overrides, 'assigneeId') ? overrides.assigneeId ?? null : null,
   title: overrides.title ?? 'Demo Task',
+  description: Object.prototype.hasOwnProperty.call(overrides, 'description') ? overrides.description ?? null : 'Task description',
   status: overrides.status ?? 'TODO',
   priority: overrides.priority ?? 'MEDIUM',
   sortOrder: overrides.sortOrder ?? new Prisma.Decimal(0),

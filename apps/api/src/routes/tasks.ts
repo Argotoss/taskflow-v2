@@ -11,7 +11,7 @@ import {
   type TaskSummary
 } from '@taskflow/types';
 import { requireUserId } from '../utils/current-user.js';
-import type { Prisma } from '@taskflow/db';
+import { Prisma } from '@taskflow/db';
 
 type TaskRecord = Prisma.TaskGetPayload<{
   select: {
@@ -20,6 +20,7 @@ type TaskRecord = Prisma.TaskGetPayload<{
     creatorId: true;
     assigneeId: true;
     title: true;
+    description: true;
     status: true;
     priority: true;
     sortOrder: true;
@@ -29,6 +30,10 @@ type TaskRecord = Prisma.TaskGetPayload<{
   };
 }>;
 
+type TaskStatus = TaskSummary['status'];
+
+const boardStatuses: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'BLOCKED', 'COMPLETED'];
+
 const serializeTask = (task: TaskRecord): TaskSummary =>
   taskSummarySchema.parse({
     id: task.id,
@@ -36,6 +41,7 @@ const serializeTask = (task: TaskRecord): TaskSummary =>
     creatorId: task.creatorId,
     assigneeId: task.assigneeId,
     title: task.title,
+    description: task.description,
     status: task.status,
     priority: task.priority,
     sortOrder: Number(task.sortOrder),
@@ -111,6 +117,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
           creatorId: true,
           assigneeId: true,
           title: true,
+          description: true,
           status: true,
           priority: true,
           sortOrder: true,
@@ -140,6 +147,13 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
     await ensureProjectAccess(app, params.projectId, userId);
 
+    const status = (body.status ?? 'TODO') as TaskStatus;
+    const aggregate = await app.prisma.task.aggregate({
+      where: { projectId: params.projectId },
+      _max: { sortOrder: true }
+    });
+    const nextSortOrder = new Prisma.Decimal((aggregate._max.sortOrder?.toNumber() ?? 0) + 1);
+
     const task = await app.prisma.task.create({
       data: {
         projectId: params.projectId,
@@ -147,10 +161,10 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         assigneeId: body.assigneeId ?? null,
         title: body.title,
         description: body.description ?? null,
-        status: body.status ?? undefined,
+        status,
         priority: body.priority ?? undefined,
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
-        sortOrder: 0
+        sortOrder: nextSortOrder
       },
       select: {
         id: true,
@@ -158,6 +172,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         creatorId: true,
         assigneeId: true,
         title: true,
+        description: true,
         status: true,
         priority: true,
         sortOrder: true,
@@ -184,6 +199,7 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         creatorId: true,
         assigneeId: true,
         title: true,
+        description: true,
         status: true,
         priority: true,
         sortOrder: true,
@@ -199,20 +215,40 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
     await ensureProjectAccess(app, task.projectId, userId);
 
+    const updateData: Prisma.TaskUncheckedUpdateInput = {};
+
+    if (body.title !== undefined) {
+      updateData.title = body.title;
+    }
+    if (body.description !== undefined) {
+      updateData.description = body.description;
+    }
+    if (body.status !== undefined) {
+      updateData.status = body.status;
+    }
+    if (body.priority !== undefined) {
+      updateData.priority = body.priority;
+    }
+    if (body.assigneeId !== undefined) {
+      updateData.assigneeId = body.assigneeId;
+    }
+    if (body.dueDate !== undefined) {
+      updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    }
+    if (body.sortOrder !== undefined) {
+      updateData.sortOrder = new Prisma.Decimal(body.sortOrder);
+    }
+
     const updated = await app.prisma.task.update({
       where: { id: params.taskId },
-      data: {
-        ...body,
-        assigneeId: body.assigneeId ?? undefined,
-        description: body.description ?? undefined,
-        dueDate: body.dueDate ? new Date(body.dueDate) : body.dueDate
-      },
+      data: updateData,
       select: {
         id: true,
         projectId: true,
         creatorId: true,
         assigneeId: true,
         title: true,
+        description: true,
         status: true,
         priority: true,
         sortOrder: true,
@@ -232,17 +268,101 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
 
     await ensureProjectAccess(app, params.projectId, userId);
 
-    await app.prisma.$transaction(
-      body.taskIds.map((taskId, index) =>
-        app.prisma.task.update({
-          where: { id: taskId },
-          data: {
-            sortOrder: index + 1
-          }
-        })
-      )
-    );
+    const seenStatuses = new Set<TaskStatus>();
+    body.columns.forEach((column) => {
+      if (seenStatuses.has(column.status)) {
+        throw app.httpErrors.badRequest('Duplicate column statuses provided');
+      }
+      seenStatuses.add(column.status);
+    });
 
-    return { data: { taskIds: body.taskIds } };
+    const seenTaskIds = new Set<string>();
+    body.columns.forEach((column) => {
+      column.taskIds.forEach((taskId) => {
+        if (seenTaskIds.has(taskId)) {
+          throw app.httpErrors.badRequest('Task ids must be unique across columns');
+        }
+        seenTaskIds.add(taskId);
+      });
+    });
+
+    const referencedTaskIds = Array.from(seenTaskIds);
+
+    if (referencedTaskIds.length > 0) {
+      const tasks = await app.prisma.task.findMany({
+        where: {
+          projectId: params.projectId,
+          id: {
+            in: referencedTaskIds
+          }
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (tasks.length !== referencedTaskIds.length) {
+        throw app.httpErrors.badRequest('One or more tasks do not belong to the project');
+      }
+    }
+
+    let order = 1;
+    const updates: Prisma.PrismaPromise<unknown>[] = [];
+
+    for (const status of boardStatuses) {
+      const column = body.columns.find((item) => item.status === status);
+      if (!column) {
+        continue;
+      }
+
+      column.taskIds.forEach((taskId) => {
+        const sortOrder = new Prisma.Decimal(order);
+        updates.push(
+          app.prisma.task.updateMany({
+            where: {
+              id: taskId,
+              projectId: params.projectId
+            },
+            data: {
+              status,
+              sortOrder
+            }
+          })
+        );
+        order += 1;
+      });
+    }
+
+    if (updates.length > 0) {
+      await app.prisma.$transaction(updates);
+    }
+
+    return { data: { taskIds: referencedTaskIds } };
+  });
+
+  app.delete('/tasks/:taskId', async (request, reply) => {
+    const userId = await requireUserId(request);
+    const params = taskParamsSchema.parse(request.params);
+
+    const task = await app.prisma.task.findUnique({
+      where: { id: params.taskId },
+      select: {
+        id: true,
+        projectId: true
+      }
+    });
+
+    if (!task) {
+      throw app.httpErrors.notFound('Task not found');
+    }
+
+    await ensureProjectAccess(app, task.projectId, userId);
+
+    await app.prisma.task.delete({
+      where: { id: params.taskId }
+    });
+
+    reply.code(204);
+    return null;
   });
 };
