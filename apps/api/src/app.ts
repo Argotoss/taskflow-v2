@@ -4,6 +4,7 @@ import sensible from '@fastify/sensible';
 import cookiePlugin from './plugins/cookie.js';
 import jwtPlugin from './plugins/jwt.js';
 import prismaPlugin from './plugins/prisma.js';
+import corsPlugin from './plugins/cors.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerHealthRoutes } from './routes/health.js';
 import { registerProfileRoutes } from './routes/profile.js';
@@ -18,6 +19,7 @@ export const buildApp = (): FastifyInstance => {
   const app = Fastify({ logger: true });
 
   void app.register(sensible);
+  void app.register(corsPlugin);
   void app.register(cookiePlugin);
   void app.register(jwtPlugin);
   void app.register(prismaPlugin);

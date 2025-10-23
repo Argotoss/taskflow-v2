@@ -10,7 +10,15 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   RESET_PASSWORD_TOKEN_TTL_MINUTES: z.coerce.number().int().positive().default(60),
   AWS_REGION: z.string().min(1).default('us-east-1'),
-  ATTACHMENTS_BUCKET: z.string().min(1).default('taskflow-local-attachments')
+  ATTACHMENTS_BUCKET: z.string().min(1).default('taskflow-local-attachments'),
+  CORS_ORIGIN: z
+    .string()
+    .min(1)
+    .default('http://localhost:5173')
+    .transform((value) => {
+      const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+      return entries.length === 0 ? ['http://localhost:5173'] : entries;
+    })
 });
 
 export const environment = loadEnv(schema);

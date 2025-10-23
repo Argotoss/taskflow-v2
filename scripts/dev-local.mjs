@@ -69,7 +69,7 @@ const loadEnvFile = () => {
 const ensureEnvDefaults = () => {
   const defaults = {
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/taskflow?schema=public',
-    JWT_SECRET: 'dev-jwt-secret',
+    JWT_SECRET: 'dev-jwt-secret-32-characters-long-demo-key',
     REFRESH_TOKEN_TTL_DAYS: '30',
     RESET_PASSWORD_TOKEN_TTL_MINUTES: '60',
     REDIS_URL: 'redis://localhost:6379',
@@ -108,26 +108,56 @@ const waitForDatabase = async () => {
   await run('npx', ['wait-on', `tcp:${host}:${port}`, '--timeout', '30000']);
 };
 
+const composeCandidates = {
+  docker: {
+    command: 'docker',
+    args: ['compose'],
+    versionArgs: ['compose', 'version'],
+    label: 'docker compose'
+  },
+  'docker-compose': {
+    command: 'docker-compose',
+    args: [],
+    versionArgs: ['version'],
+    label: 'docker-compose'
+  },
+  podman: {
+    command: 'podman',
+    args: ['compose'],
+    versionArgs: ['compose', 'version'],
+    label: 'podman compose'
+  },
+  'podman-compose': {
+    command: 'podman-compose',
+    args: [],
+    versionArgs: ['version'],
+    label: 'podman-compose'
+  }
+};
+
 const detectComposeCommand = () => {
   const preferred = process.env.CONTAINER_RUNTIME?.trim().toLowerCase();
-  const candidates = preferred ? [preferred] : ['docker', 'podman'];
+  const order = preferred
+    ? [preferred].concat(Object.keys(composeCandidates).filter((name) => name !== preferred))
+    : ['docker', 'docker-compose', 'podman', 'podman-compose'];
 
-  for (const runtime of candidates) {
-    const check = spawnSync(runtime, ['--version'], {
+  for (const name of order) {
+    const candidate = composeCandidates[name];
+    if (!candidate) {
+      continue;
+    }
+    const check = spawnSync(candidate.command, candidate.versionArgs, {
       stdio: 'ignore',
       shell: process.platform === 'win32'
     });
 
     if (check.status === 0) {
-      if (runtime === 'docker' || runtime === 'podman') {
-        return runtime;
-      }
-      return runtime;
+      return candidate;
     }
   }
 
   throw new Error(
-    'Container runtime not found. Install Docker or Podman and ensure it is on your PATH, or set CONTAINER_RUNTIME to the runtime executable.'
+    'Container runtime not found. Install Docker, Docker Compose, Podman, or Podman Compose and ensure it is on your PATH. You can override detection via CONTAINER_RUNTIME.'
   );
 };
 
@@ -143,11 +173,18 @@ const main = async () => {
   }
 
   const compose = detectComposeCommand();
-  log(`► Starting local services via ${compose} compose`);
-  const composeArgs = ['compose', '-f', composeFile, 'up', '-d'];
-  await run(compose, composeArgs);
+  log(`► Starting local services via ${compose.label}`);
+  try {
+    await run(compose.command, [...compose.args, '-f', composeFile, 'down']);
+  } catch (error) {
+    log(`• compose down skipped (${error.message})`);
+  }
+  await run(compose.command, [...compose.args, '-f', composeFile, 'pull']);
+  await run(compose.command, [...compose.args, '-f', composeFile, 'up', '-d']);
 
   await waitForDatabase();
+  await new Promise((resolve) => globalThis.setTimeout(resolve, 3000));
+  log('► Database accepting connections');
 
   log('► Generating Prisma client');
   await run('npm', ['run', 'prisma:generate']);
