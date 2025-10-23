@@ -6,7 +6,6 @@ export default fp(async (app: FastifyInstance) => {
   await app.register(rateLimit, {
     global: false,
     hook: 'onRequest',
-    trustProxy: true,
     addHeaders: {
       'x-ratelimit-limit': true,
       'x-ratelimit-remaining': true,
