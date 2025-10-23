@@ -7,7 +7,7 @@ export const slugSchema = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
 
 export const membershipRoleSchema = z.enum(['OWNER', 'ADMIN', 'CONTRIBUTOR', 'VIEWER']);
 export const projectStatusSchema = z.enum(['DRAFT', 'ACTIVE', 'ARCHIVED']);
-export const taskStatusSchema = z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED']);
+export const taskStatusSchema = z.enum(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'BLOCKED', 'COMPLETED']);
 export const taskPrioritySchema = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']);
 export const authTokenTypeSchema = z.enum(['REFRESH', 'RESET_PASSWORD', 'WORKSPACE_INVITE']);
 export const activityEntitySchema = z.enum(['WORKSPACE', 'PROJECT', 'TASK', 'COMMENT', 'ATTACHMENT', 'MEMBERSHIP']);

@@ -17,6 +17,7 @@ export const taskSummarySchema = z.object({
   creatorId: uuidSchema,
   assigneeId: uuidSchema.nullable(),
   title: z.string(),
+  description: z.string().nullable(),
   status: taskStatusSchema,
   priority: taskPrioritySchema,
   sortOrder: z.number(),
@@ -26,7 +27,6 @@ export const taskSummarySchema = z.object({
 });
 
 export const taskDetailSchema = taskSummarySchema.extend({
-  description: z.string().nullable(),
   startedAt: isoDateTimeSchema.nullable(),
   completedAt: isoDateTimeSchema.nullable(),
   creator: userSummarySchema,
@@ -51,7 +51,14 @@ export const updateTaskBodySchema = createTaskBodySchema.partial().extend({
 });
 
 export const reorderTasksBodySchema = z.object({
-  taskIds: uuidSchema.array().nonempty()
+  columns: z
+    .array(
+      z.object({
+        status: taskStatusSchema,
+        taskIds: uuidSchema.array()
+      })
+    )
+    .nonempty()
 });
 
 export const taskParamsSchema = z.object({
