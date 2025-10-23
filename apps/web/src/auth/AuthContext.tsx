@@ -208,9 +208,9 @@ const AuthProvider = ({ children }: PropsWithChildren): JSX.Element => {
   }, [applySession]);
 
   const acceptInvite = useCallback(async (payload: InviteAcceptBody) => {
-    const response = await authApi.acceptInvite(payload);
+    const response = await authApi.acceptInvite(payload, session?.tokens.accessToken ?? null);
     applySession(withIssuedAt(response));
-  }, [applySession]);
+  }, [applySession, session?.tokens.accessToken]);
 
   const logout = useCallback(async () => {
     const current = session;

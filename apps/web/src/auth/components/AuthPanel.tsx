@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FormEvent, JSX } from 'react';
-import type { UpdateProfileBody, InvitePreviewResponse } from '@taskflow/types';
+import type { UpdateProfileBody, InvitePreviewResponse, AuthInviteSummary } from '@taskflow/types';
 import { useAuth } from '../useAuth.js';
 import { authApi, ApiError } from '../authApi.js';
 import WorkspaceAdminPanel from '../../workspaces/components/WorkspaceAdminPanel.js';
@@ -68,6 +68,29 @@ const AuthPanel = (): JSX.Element => {
   const [profileError, setProfileError] = useState('');
   const [profileStatus, setProfileStatus] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
+  const [accountInvites, setAccountInvites] = useState<AuthInviteSummary[]>([]);
+  const [accountInvitesLoading, setAccountInvitesLoading] = useState(false);
+  const [accountInviteError, setAccountInviteError] = useState('');
+  const [accountInviteStatus, setAccountInviteStatus] = useState('');
+  const [processingInviteToken, setProcessingInviteToken] = useState<string | null>(null);
+
+  const clearInviteTokenFromUrl = useCallback(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete('invite');
+    url.searchParams.delete('token');
+    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+
+  const clearInviteTokenState = useCallback(() => {
+    setInviteToken('');
+    setInvitePreview(null);
+    setInviteError('');
+    clearInviteTokenFromUrl();
+    setMode((current) => (current === 'invite' ? 'login' : current));
+  }, [clearInviteTokenFromUrl]);
 
   useEffect(() => {
     if (mode !== 'invite' || !inviteToken) {
@@ -121,6 +144,7 @@ const AuthPanel = (): JSX.Element => {
       setInviteForm({ name: '', password: '', confirm: '' });
       setShowInvitePassword(false);
       setShowInviteConfirm(false);
+      clearInviteTokenFromUrl();
     }
   };
 
@@ -223,6 +247,77 @@ const AuthPanel = (): JSX.Element => {
     }
   };
 
+  const loadAccountInvites = useCallback(async () => {
+    if (!auth.user || !auth.session?.tokens.accessToken) {
+      setAccountInvites([]);
+      setAccountInviteError('');
+      setAccountInviteStatus('');
+      return;
+    }
+    setAccountInvitesLoading(true);
+    setAccountInviteError('');
+    try {
+      const data = await authApi.listInvites(auth.session.tokens.accessToken);
+      setAccountInvites(data);
+    } catch (exception) {
+      const message = exception instanceof ApiError ? exception.message : 'Unable to load invites';
+      setAccountInviteError(message);
+      setAccountInvites([]);
+    } finally {
+      setAccountInvitesLoading(false);
+    }
+  }, [auth.session?.tokens.accessToken, auth.user?.id]);
+
+  const handleAccountInviteAccept = useCallback(
+    async (token: string) => {
+      setAccountInviteError('');
+      setAccountInviteStatus('');
+      setProcessingInviteToken(token);
+      const derivedName =
+        accountInvites.find((entry) => entry.token === token)?.workspaceName ??
+        (invitePreview && inviteToken === token ? invitePreview.workspaceName : '');
+      try {
+        await auth.acceptInvite({ token });
+        setAccountInvites((current) => current.filter((entry) => entry.token !== token));
+        if (derivedName) {
+          setAccountInviteStatus(`Joined ${derivedName}`);
+        } else {
+          setAccountInviteStatus('Invite accepted');
+        }
+        if (inviteToken === token) {
+          clearInviteTokenState();
+        }
+        await loadAccountInvites();
+      } catch (exception) {
+        const message = exception instanceof ApiError ? exception.message : 'Unable to join workspace';
+        setAccountInviteError(message);
+      } finally {
+        setProcessingInviteToken(null);
+      }
+    },
+    [accountInvites, auth, clearInviteTokenState, invitePreview, inviteToken, loadAccountInvites]
+  );
+
+  const handleAccountInviteDismiss = useCallback(
+    (token: string) => {
+      setAccountInvites((current) => current.filter((entry) => entry.token !== token));
+      if (inviteToken === token) {
+        clearInviteTokenState();
+      }
+    },
+    [clearInviteTokenState, inviteToken]
+  );
+
+  useEffect(() => {
+    if (!auth.user) {
+      setAccountInvites([]);
+      setAccountInviteStatus('');
+      setAccountInviteError('');
+      return;
+    }
+    void loadAccountInvites();
+  }, [auth.user?.id, loadAccountInvites]);
+
   const handleProfileSubmit = async (changes: UpdateProfileBody): Promise<void> => {
     setProfileError('');
     setProfileStatus('');
@@ -249,6 +344,129 @@ const AuthPanel = (): JSX.Element => {
     await auth.logout();
   };
 
+  const renderInviteTokenBanner = (): JSX.Element | null => {
+    if (!auth.user || !inviteToken) {
+      return null;
+    }
+    if (inviteLoading) {
+      return <div className="auth-card__status">Validating invite…</div>;
+    }
+    if (inviteError) {
+      return (
+        <div className="auth-card__section">
+          <div className="auth-card__error">{inviteError}</div>
+          <div className="auth-card__list-actions">
+            <button type="button" className="workspace-button workspace-button--ghost" onClick={clearInviteTokenState}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      );
+    }
+    if (!invitePreview) {
+      return null;
+    }
+    const matchesAccount = invitePreview.invitedEmail.toLowerCase() === auth.user.email.toLowerCase();
+    return (
+      <div className="auth-card__section">
+        <p className="auth-card__subtitle">
+          {invitePreview.invitedEmail} was invited to {invitePreview.workspaceName} as {inviteRoleLabels[invitePreview.role]}.
+        </p>
+        <div className="auth-card__list-actions">
+          {matchesAccount ? (
+            <>
+              <button
+                type="button"
+                className="workspace-button"
+                disabled={processingInviteToken === inviteToken}
+                onClick={() => {
+                  void handleAccountInviteAccept(inviteToken);
+                }}
+              >
+                {processingInviteToken === inviteToken ? 'Joining…' : 'Join workspace'}
+              </button>
+              <button type="button" className="workspace-button workspace-button--ghost" onClick={clearInviteTokenState}>
+                Dismiss
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="workspace-button"
+                onClick={() => {
+                  clearInviteTokenState();
+                  void handleSignOut();
+                }}
+              >
+                Sign out to continue
+              </button>
+              <button type="button" className="workspace-button workspace-button--ghost" onClick={clearInviteTokenState}>
+                Dismiss
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAccountInvites = (): JSX.Element | null => {
+    if (!auth.user) {
+      return null;
+    }
+    if (accountInvitesLoading && accountInvites.length === 0) {
+      return (
+        <div className="auth-card__section">
+          <p className="auth-card__subtitle">Checking for pending workspace invites…</p>
+        </div>
+      );
+    }
+    if (accountInviteError && accountInvites.length === 0) {
+      return (
+        <div className="auth-card__section">
+          <div className="auth-card__error">{accountInviteError}</div>
+        </div>
+      );
+    }
+    if (accountInvites.length === 0) {
+      return null;
+    }
+    return (
+      <div className="auth-card__section">
+        <h3>Pending invites</h3>
+        {accountInviteStatus && <div className="auth-card__status">{accountInviteStatus}</div>}
+        {accountInviteError && <div className="auth-card__error">{accountInviteError}</div>}
+        <ul className="auth-card__list">
+          {accountInvites.map((invite) => (
+            <li key={invite.token} className="auth-card__list-item">
+              <div className="auth-card__list-details">
+                <strong>{invite.workspaceName}</strong>
+                <span className="auth-card__meta">Role: {inviteRoleLabels[invite.role]}</span>
+                <span className="auth-card__meta">Expires: {new Date(invite.expiresAt).toLocaleString()}</span>
+              </div>
+              <div className="auth-card__list-actions">
+                <button
+                  type="button"
+                  className="workspace-button"
+                  disabled={processingInviteToken === invite.token}
+                  onClick={() => {
+                    void handleAccountInviteAccept(invite.token);
+                  }}
+                >
+                  {processingInviteToken === invite.token ? 'Joining…' : 'Join'}
+                </button>
+                <button type="button" className="workspace-button workspace-button--ghost" onClick={() => handleAccountInviteDismiss(invite.token)}>
+                  Dismiss
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
   if (!auth.ready) {
     return (
       <aside className="auth-card">
@@ -266,6 +484,8 @@ const AuthPanel = (): JSX.Element => {
         {profileError && <div className="auth-card__error">{profileError}</div>}
         {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
         <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
+        {renderInviteTokenBanner()}
+        {renderAccountInvites()}
         <WorkspaceAdminPanel accessToken={auth.session?.tokens.accessToken ?? null} currentUserId={auth.user.id} />
         <button
           className="auth-card__link"

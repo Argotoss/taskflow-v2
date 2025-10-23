@@ -17,7 +17,8 @@ const mockAuthApi = vi.hoisted(() => ({
   resetPassword: vi.fn(),
   profile: vi.fn(),
   updateProfile: vi.fn(),
-  acceptInvite: vi.fn()
+  acceptInvite: vi.fn(),
+  listInvites: vi.fn()
 }));
 
 vi.mock('./authApi.ts', () => ({
@@ -74,6 +75,7 @@ describe('AuthProvider', () => {
       name: 'Updated Name'
     });
     mockAuthApi.acceptInvite.mockResolvedValue(loginResponse);
+    mockAuthApi.listInvites.mockResolvedValue([]);
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.clear();
     }
@@ -156,11 +158,14 @@ describe('AuthProvider', () => {
       await result.current.acceptInvite({ token: 'invite-token', name: 'New Member', password: 'ComplexPass123!' });
     });
 
-    expect(mockAuthApi.acceptInvite).toHaveBeenCalledWith({
-      token: 'invite-token',
-      name: 'New Member',
-      password: 'ComplexPass123!'
-    });
+    expect(mockAuthApi.acceptInvite).toHaveBeenCalledWith(
+      {
+        token: 'invite-token',
+        name: 'New Member',
+        password: 'ComplexPass123!'
+      },
+      null
+    );
     expect(result.current.user?.email).toBe('ava@taskflow.app');
     expect(window.localStorage.getItem('taskflow.session')).toContain('refresh-token');
   });

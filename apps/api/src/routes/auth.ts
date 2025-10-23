@@ -10,7 +10,8 @@ import {
   resetPasswordBodySchema,
   invitePreviewQuerySchema,
   invitePreviewResponseSchema,
-  inviteAcceptBodySchema
+  inviteAcceptBodySchema,
+  listAuthInvitesResponseSchema
 } from '@taskflow/types';
 import { hashPassword, verifyPassword } from '../modules/auth/hash.js';
 import { TokenService, type TokenContext } from '../modules/auth/tokens.js';
@@ -219,8 +220,61 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     };
   });
 
+  app.get('/auth/invites', async (request) => {
+    const userId = await requireUserId(request);
+
+    const user = await app.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true
+      }
+    });
+
+    if (!user) {
+      throw app.httpErrors.unauthorized('Account not found');
+    }
+
+    const email = user.email.trim().toLowerCase();
+    const invites = await app.prisma.workspaceInvite.findMany({
+      where: {
+        email,
+        acceptedAt: null,
+        expiresAt: {
+          gt: new Date()
+        }
+      },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
+
+    const data = invites.map((invite) => ({
+      token: invite.token,
+      workspaceId: invite.workspaceId,
+      workspaceName: invite.workspace.name,
+      role: invite.role,
+      expiresAt: invite.expiresAt.toISOString()
+    }));
+
+    return listAuthInvitesResponseSchema.parse({ data });
+  });
+
   app.post('/auth/invite/accept', { config: { rateLimit: authRateLimitConfig() } }, async (request, reply) => {
     const body = inviteAcceptBodySchema.parse(request.body);
+    let authenticatedUserId: string | null = null;
+    try {
+      authenticatedUserId = await requireUserId(request);
+    } catch {
+      authenticatedUserId = null;
+    }
 
     const invite = await app.prisma.workspaceInvite.findFirst({
       where: {
@@ -247,9 +301,16 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       }>;
       const userRecord = existingUser as ExistingUserWithPreference;
 
-      const valid = await verifyPassword(userRecord.passwordHash, body.password);
-      if (!valid) {
-        throw app.httpErrors.unauthorized('Invalid credentials for invited account');
+      const isAuthenticatedUser = authenticatedUserId === userRecord.id;
+
+      if (!isAuthenticatedUser) {
+        if (!body.password) {
+          throw app.httpErrors.unauthorized('Password required to accept invite');
+        }
+        const valid = await verifyPassword(userRecord.passwordHash, body.password);
+        if (!valid) {
+          throw app.httpErrors.unauthorized('Invalid credentials for invited account');
+        }
       }
 
       const now = new Date();
@@ -309,6 +370,10 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     if (!body.name) {
       throw app.httpErrors.badRequest('Name is required to create an account');
+    }
+
+    if (!body.password) {
+      throw app.httpErrors.badRequest('Password is required to create an account');
     }
 
     const accountName = body.name;

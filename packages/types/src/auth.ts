@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, membershipRoleSchema, uuidSchema } from './primitives.js';
+import { emailSchema, membershipRoleSchema, uuidSchema, isoDateTimeSchema } from './primitives.js';
 import { userDetailSchema } from './user.js';
 
 const passwordSchema = z.string().min(4);
@@ -44,7 +44,7 @@ export const resetPasswordBodySchema = z.object({
 export const inviteAcceptBodySchema = z.object({
   token: z.string(),
   name: z.string().min(1).optional(),
-  password: passwordSchema
+  password: passwordSchema.optional()
 });
 
 export const invitePreviewResponseSchema = z.object({
@@ -58,6 +58,18 @@ export const invitePreviewQuerySchema = z.object({
   token: z.string().uuid()
 });
 
+export const authInviteSummarySchema = z.object({
+  token: z.string().uuid(),
+  workspaceId: uuidSchema,
+  workspaceName: z.string(),
+  role: membershipRoleSchema,
+  expiresAt: isoDateTimeSchema
+});
+
+export const listAuthInvitesResponseSchema = z.object({
+  data: authInviteSummarySchema.array()
+});
+
 export type RegisterBody = z.infer<typeof registerBodySchema>;
 export type LoginBody = z.infer<typeof loginBodySchema>;
 export type AuthTokens = z.infer<typeof authTokensSchema>;
@@ -68,3 +80,4 @@ export type ForgotPasswordBody = z.infer<typeof forgotPasswordBodySchema>;
 export type ResetPasswordBody = z.infer<typeof resetPasswordBodySchema>;
 export type InviteAcceptBody = z.infer<typeof inviteAcceptBodySchema>;
 export type InvitePreviewResponse = z.infer<typeof invitePreviewResponseSchema>;
+export type AuthInviteSummary = z.infer<typeof authInviteSummarySchema>;

@@ -9,7 +9,8 @@ import {
   updateProfileBodySchema,
   invitePreviewResponseSchema,
   inviteAcceptBodySchema,
-  invitePreviewQuerySchema
+  invitePreviewQuerySchema,
+  listAuthInvitesResponseSchema
 } from '@taskflow/types';
 import type {
   AuthTokens,
@@ -20,10 +21,11 @@ import type {
   RegisterBody,
   LoginBody,
   UpdateProfileBody,
-  UserDetail
+  UserDetail,
+  AuthInviteSummary
 } from '@taskflow/types';
 import { z } from 'zod';
-import { request, authorizationHeaders, serializeBody, ApiError } from '../api/httpClient.js';
+import { request, authorizationHeaders, serializeBody, ApiError, requireAccessToken } from '../api/httpClient.js';
 
 const invitePreviewResponseWrapper = z.object({
   data: invitePreviewResponseSchema
@@ -101,12 +103,22 @@ export const authApi = {
     }, invitePreviewResponseWrapper);
     return response.data;
   },
-  async acceptInvite(payload: z.infer<typeof inviteAcceptBodySchema>): Promise<LoginResponse> {
+  async acceptInvite(payload: z.infer<typeof inviteAcceptBodySchema>, accessToken?: string | null): Promise<LoginResponse> {
     const body = inviteAcceptBodySchema.parse(payload);
+    const headers = accessToken ? authorizationHeaders(accessToken) : undefined;
     return request('/auth/invite/accept', {
       method: 'POST',
+      headers,
       body: serializeBody(body)
     }, loginResponseSchema);
+  },
+  async listInvites(accessToken: string | null): Promise<AuthInviteSummary[]> {
+    const token = requireAccessToken(accessToken);
+    const response = await request('/auth/invites', {
+      method: 'GET',
+      headers: authorizationHeaders(token)
+    }, listAuthInvitesResponseSchema);
+    return response.data;
   }
 };
 

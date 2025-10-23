@@ -469,6 +469,30 @@ describe('auth routes', () => {
     expect(response.statusCode).toBe(400);
   });
 
+  it('requires password when creating account via invite', async () => {
+    const invite = buildWorkspaceInvite({
+      token: '2d093642-37d2-4f69-b83d-a10b3d5d3ba7',
+      email: 'new.member@taskflow.app',
+      workspaceId: 'workspace-1',
+      role: 'CONTRIBUTOR',
+      expiresAt: new Date(Date.now() + 3600_000)
+    });
+
+    vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(null);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/invite/accept',
+      payload: {
+        token: invite.token,
+        name: 'New Member'
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+  });
+
   it('accepts invite for existing user after verifying password', async () => {
     const invite = buildWorkspaceInvite({
       token: '3c266048-f787-4eee-9ed3-d51054f50c6d',
@@ -533,5 +557,108 @@ describe('auth routes', () => {
       include: { notificationPreference: true }
     });
     expect(createSessionSpy).toHaveBeenCalledWith(demoUserId, expect.any(Object));
+  });
+
+  it('accepts invite for authenticated user without requiring password', async () => {
+    const invite = buildWorkspaceInvite({
+      token: 'e2c3f9ae-76f2-4d40-8a92-9049ddab7c07',
+      email: 'existing@taskflow.app',
+      workspaceId: 'workspace-1',
+      role: 'ADMIN',
+      expiresAt: new Date(Date.now() + 3600_000)
+    });
+
+    vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
+
+    const existingUser = buildUserWithPreferences({
+      id: demoUserId,
+      email: invite.email,
+      passwordHash: await hashPassword('ComplexPass123!'),
+      notificationPreference: buildNotificationPreference({
+        id: 'pref-existing',
+        userId: demoUserId,
+        createdAt: now,
+        updatedAt: now
+      })
+    });
+
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(existingUser);
+
+    const upsertSpy = vi.spyOn(app.prisma.membership, 'upsert').mockResolvedValue(
+      buildMembership({
+        id: 'membership-existing',
+        workspaceId: invite.workspaceId,
+        userId: demoUserId,
+        role: 'ADMIN'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.upsert>>
+    );
+
+    const inviteUpdateSpy = vi.spyOn(app.prisma.workspaceInvite, 'update').mockResolvedValue(
+      buildWorkspaceInvite({
+        ...invite,
+        acceptedAt: new Date()
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.update>>
+    );
+
+    const userReloadSpy = vi.spyOn(app.prisma.user, 'findUniqueOrThrow').mockResolvedValue(existingUser);
+
+    vi.spyOn(app.prisma, '$transaction').mockImplementation(async (callback) => callback(app.prisma));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/invite/accept',
+      headers: buildAuthHeader(app),
+      payload: {
+        token: invite.token
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(upsertSpy).toHaveBeenCalled();
+    expect(inviteUpdateSpy).toHaveBeenCalled();
+    expect(userReloadSpy).toHaveBeenCalled();
+    expect(createSessionSpy).toHaveBeenCalledWith(demoUserId, expect.any(Object));
+  });
+
+  it('lists pending invites for authenticated user', async () => {
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(
+      buildUser({
+        id: demoUserId,
+        email: 'owner@taskflow.app'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.user.findUnique>>
+    );
+
+    const inviteRecord = {
+      token: '90d54d64-cb1a-4671-9e77-2cf7383cc2b4',
+      workspaceId: '11111111-1111-1111-1111-111111111111',
+      email: 'owner@taskflow.app',
+      role: 'ADMIN',
+      expiresAt: new Date(Date.now() + 3600_000),
+      acceptedAt: null,
+      workspace: {
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Demo Workspace'
+      },
+      createdAt: now
+    };
+
+    vi.spyOn(app.prisma.workspaceInvite, 'findMany').mockResolvedValue([inviteRecord] as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findMany>>);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/auth/invites',
+      headers: buildAuthHeader(app)
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data).toEqual([
+      {
+        token: inviteRecord.token,
+        workspaceId: inviteRecord.workspaceId,
+        workspaceName: inviteRecord.workspace.name,
+        role: inviteRecord.role,
+        expiresAt: inviteRecord.expiresAt.toISOString()
+      }
+    ]);
   });
 });
