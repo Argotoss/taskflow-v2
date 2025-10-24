@@ -134,6 +134,7 @@ const BoardLayout = (): JSX.Element => {
   const [assigneeFilter, setAssigneeFilter] = useState<'ALL' | 'UNASSIGNED' | string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>(priorityOrder);
   const [dueFilter, setDueFilter] = useState<DueFilter>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -190,13 +191,18 @@ const BoardLayout = (): JSX.Element => {
 
   const hiddenColumnSet = useMemo(() => new Set<TaskStatus>(hiddenColumns), [hiddenColumns]);
   const filtersActive = useMemo(
-    () => assigneeFilter !== 'ALL' || priorityFilter.length !== priorityOrder.length || dueFilter !== 'ALL',
-    [assigneeFilter, priorityFilter, dueFilter]
+    () =>
+      assigneeFilter !== 'ALL' ||
+      priorityFilter.length !== priorityOrder.length ||
+      dueFilter !== 'ALL' ||
+      searchQuery.trim().length > 0,
+    [assigneeFilter, priorityFilter, dueFilter, searchQuery]
   );
   const visibleBoard = useMemo(() => {
     const now = Date.now();
     const soonThreshold = now + 7 * 24 * 60 * 60 * 1000;
     const prioritySet = new Set<TaskPriority>(priorityFilter);
+    const trimmedQuery = searchQuery.trim().toLowerCase();
     const filtered = createEmptyBoard();
     statusOrder.forEach((status) => {
       filtered[status] = boardTasks[status].filter((task) => {
@@ -211,6 +217,13 @@ const BoardLayout = (): JSX.Element => {
         }
         if (!prioritySet.has(task.priority)) {
           return false;
+        }
+        if (trimmedQuery.length > 0) {
+          const inTitle = task.title.toLowerCase().includes(trimmedQuery);
+          const inDescription = task.description ? task.description.toLowerCase().includes(trimmedQuery) : false;
+          if (!inTitle && !inDescription) {
+            return false;
+          }
         }
         if (dueFilter === 'ALL') {
           return true;
@@ -235,7 +248,11 @@ const BoardLayout = (): JSX.Element => {
       });
     });
     return filtered;
-  }, [assigneeFilter, boardTasks, dueFilter, priorityFilter]);
+  }, [assigneeFilter, boardTasks, dueFilter, priorityFilter, searchQuery]);
+  const filteredTaskCount = useMemo(
+    () => statusOrder.reduce((sum, status) => sum + visibleBoard[status].length, 0),
+    [visibleBoard]
+  );
 
   useEffect(() => {
     if (!infoMessage || typeof window === 'undefined') {
@@ -408,7 +425,12 @@ const BoardLayout = (): JSX.Element => {
       .members(accessToken, selectedWorkspaceId)
       .then((data) => {
         if (!cancelled) {
-          setWorkspaceMembers(data);
+          const sorted = [...data].sort((left, right) => {
+            const leftName = left.user.name ?? left.user.email;
+            const rightName = right.user.name ?? right.user.email;
+            return leftName.localeCompare(rightName, undefined, { sensitivity: 'base' });
+          });
+          setWorkspaceMembers(sorted);
         }
       })
       .catch(() => {
@@ -485,6 +507,7 @@ const BoardLayout = (): JSX.Element => {
     setAssigneeFilter('ALL');
     setPriorityFilter(priorityOrder);
     setDueFilter('ALL');
+    setSearchQuery('');
   }, [selectedProjectId]);
 
   const persistBoardState = async (
@@ -758,7 +781,9 @@ const BoardLayout = (): JSX.Element => {
             {activeProject ? (
               <div className="board-header__summary" aria-live="polite">
                 <span className="board-header__summary-label">Total tasks</span>
-                <span className="board-header__summary-value">{totalTaskCount}</span>
+                <span className="board-header__summary-value">
+                  {filtersActive ? `${filteredTaskCount}/${totalTaskCount}` : totalTaskCount}
+                </span>
               </div>
             ) : null}
             <div className="board-header__selectors">
@@ -815,6 +840,17 @@ const BoardLayout = (): JSX.Element => {
 
         {activeProject ? (
           <section className="board-filters" aria-label="Task filters">
+            <div className="board-filters__group board-filters__group--search">
+              <label>
+                <span>Search</span>
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search by title or description"
+                />
+              </label>
+            </div>
             <div className="board-filters__group">
               <label>
                 <span>Assignee</span>
@@ -845,7 +881,8 @@ const BoardLayout = (): JSX.Element => {
                       onClick={() =>
                         setPriorityFilter((current) => {
                           if (selected) {
-                            return current.filter((entry) => entry !== priority);
+                            const next = current.filter((entry) => entry !== priority);
+                            return next.length === 0 ? priorityOrder : next;
                           }
                           const nextSet = new Set([...current, priority]);
                           return priorityOrder.filter((value) => nextSet.has(value));

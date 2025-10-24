@@ -462,6 +462,19 @@ h1 {
   min-width: 160px;
 }
 
+.board-filters__group--search input {
+  border-radius: 0.65rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.6);
+  color: rgba(226, 232, 240, 0.9);
+  padding: 0.45rem 0.75rem;
+  min-width: 220px;
+}
+
+.board-filters__group--search input::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
 .board-filters__group--priority {
   gap: 0.55rem;
 }
@@ -1862,6 +1875,10 @@ h1 {
   }
 
   .board-filters__group select {
+    min-width: unset;
+  }
+
+  .board-filters__group--search input {
     min-width: unset;
   }
 }
