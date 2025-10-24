@@ -4,7 +4,7 @@ import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-p
 import { useAuth } from '../auth/useAuth.js';
 import Modal from './Modal.js';
 import AuthPanel from '../auth/components/AuthPanel.js';
-import type { TaskSummary, WorkspaceSummary, ProjectSummary } from '@taskflow/types';
+import type { TaskSummary, WorkspaceSummary, ProjectSummary, TaskPriority, MembershipSummary } from '@taskflow/types';
 import { workspaceApi } from '../workspaces/workspaceApi.js';
 import { projectApi } from '../projects/projectApi.js';
 import { tasksApi } from '../tasks/taskApi.js';
@@ -38,6 +38,15 @@ const cloneBoard = (board: Record<TaskStatus, TaskSummary[]>): Record<TaskStatus
   });
   return copy;
 };
+
+const priorityOrder: TaskPriority[] = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const priorityLabels: Record<TaskPriority, string> = {
+  CRITICAL: 'Critical',
+  HIGH: 'High',
+  MEDIUM: 'Medium',
+  LOW: 'Low'
+};
+type DueFilter = 'ALL' | 'OVERDUE' | 'DUE_SOON' | 'NO_DUE_DATE';
 
 const lowercaseAlphabet = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const uppercaseAlphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -117,10 +126,14 @@ const BoardLayout = (): JSX.Element => {
   const [taskColumn, setTaskColumn] = useState<TaskStatus>('TODO');
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [workspaceMembers, setWorkspaceMembers] = useState<MembershipSummary[]>([]);
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [boardTasks, setBoardTasks] = useState<Record<TaskStatus, TaskSummary[]>>(createEmptyBoard);
   const [hiddenColumns, setHiddenColumns] = useState<TaskStatus[]>([]);
+  const [assigneeFilter, setAssigneeFilter] = useState<'ALL' | 'UNASSIGNED' | string>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>(priorityOrder);
+  const [dueFilter, setDueFilter] = useState<DueFilter>('ALL');
   const [loadingWorkspaces, setLoadingWorkspaces] = useState(false);
   const [loadingProjects, setLoadingProjects] = useState(false);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -176,6 +189,53 @@ const BoardLayout = (): JSX.Element => {
   ]);
 
   const hiddenColumnSet = useMemo(() => new Set<TaskStatus>(hiddenColumns), [hiddenColumns]);
+  const filtersActive = useMemo(
+    () => assigneeFilter !== 'ALL' || priorityFilter.length !== priorityOrder.length || dueFilter !== 'ALL',
+    [assigneeFilter, priorityFilter, dueFilter]
+  );
+  const visibleBoard = useMemo(() => {
+    const now = Date.now();
+    const soonThreshold = now + 7 * 24 * 60 * 60 * 1000;
+    const prioritySet = new Set<TaskPriority>(priorityFilter);
+    const filtered = createEmptyBoard();
+    statusOrder.forEach((status) => {
+      filtered[status] = boardTasks[status].filter((task) => {
+        const assigneeMatches =
+          assigneeFilter === 'ALL'
+            ? true
+            : assigneeFilter === 'UNASSIGNED'
+              ? task.assigneeId === null
+              : task.assigneeId === assigneeFilter;
+        if (!assigneeMatches) {
+          return false;
+        }
+        if (!prioritySet.has(task.priority)) {
+          return false;
+        }
+        if (dueFilter === 'ALL') {
+          return true;
+        }
+        if (dueFilter === 'NO_DUE_DATE') {
+          return task.dueDate === null;
+        }
+        if (!task.dueDate) {
+          return false;
+        }
+        const dueTime = new Date(task.dueDate).getTime();
+        if (Number.isNaN(dueTime)) {
+          return false;
+        }
+        if (dueFilter === 'OVERDUE') {
+          return dueTime < now;
+        }
+        if (dueFilter === 'DUE_SOON') {
+          return dueTime >= now && dueTime <= soonThreshold;
+        }
+        return true;
+      });
+    });
+    return filtered;
+  }, [assigneeFilter, boardTasks, dueFilter, priorityFilter]);
 
   useEffect(() => {
     if (!infoMessage || typeof window === 'undefined') {
@@ -339,6 +399,29 @@ const BoardLayout = (): JSX.Element => {
   }, [accessToken, selectedWorkspaceId, workspaces]);
 
   useEffect(() => {
+    if (!accessToken || !selectedWorkspaceId) {
+      setWorkspaceMembers([]);
+      return;
+    }
+    let cancelled = false;
+    workspaceApi
+      .members(accessToken, selectedWorkspaceId)
+      .then((data) => {
+        if (!cancelled) {
+          setWorkspaceMembers(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWorkspaceMembers([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, selectedWorkspaceId]);
+
+  useEffect(() => {
     if (!accessToken || !selectedProjectId) {
       setBoardTasks(createEmptyBoard());
       return;
@@ -399,6 +482,9 @@ const BoardLayout = (): JSX.Element => {
 
   useEffect(() => {
     setHiddenColumns([]);
+    setAssigneeFilter('ALL');
+    setPriorityFilter(priorityOrder);
+    setDueFilter('ALL');
   }, [selectedProjectId]);
 
   const persistBoardState = async (
@@ -592,7 +678,8 @@ const BoardLayout = (): JSX.Element => {
       !selectedProjectId ||
       !accessToken ||
       syncing ||
-      loadingTasks
+      loadingTasks ||
+      filtersActive
     ) {
       return;
     }
@@ -726,6 +813,79 @@ const BoardLayout = (): JSX.Element => {
           </div>
         </header>
 
+        {activeProject ? (
+          <section className="board-filters" aria-label="Task filters">
+            <div className="board-filters__group">
+              <label>
+                <span>Assignee</span>
+                <select
+                  value={assigneeFilter}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>) => setAssigneeFilter(event.target.value as typeof assigneeFilter)}
+                >
+                  <option value="ALL">Everyone</option>
+                  <option value="UNASSIGNED">Unassigned</option>
+                  {workspaceMembers.map((member) => (
+                    <option key={member.id} value={member.userId}>
+                      {member.user.name ?? member.user.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="board-filters__group board-filters__group--priority">
+              <span>Priority</span>
+              <div className="board-filters__chips">
+                {priorityOrder.map((priority) => {
+                  const selected = priorityFilter.includes(priority);
+                  return (
+                    <button
+                      key={priority}
+                      type="button"
+                      className={`board-filters__chip${selected ? ' board-filters__chip--active' : ''}`}
+                      onClick={() =>
+                        setPriorityFilter((current) => {
+                          if (selected) {
+                            return current.filter((entry) => entry !== priority);
+                          }
+                          const nextSet = new Set([...current, priority]);
+                          return priorityOrder.filter((value) => nextSet.has(value));
+                        })
+                      }
+                      aria-pressed={selected}
+                    >
+                      {priorityLabels[priority]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="board-filters__group">
+              <label>
+                <span>Due date</span>
+                <select value={dueFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setDueFilter(event.target.value as DueFilter)}>
+                  <option value="ALL">Any</option>
+                  <option value="OVERDUE">Overdue</option>
+                  <option value="DUE_SOON">Due in 7 days</option>
+                  <option value="NO_DUE_DATE">No due date</option>
+                </select>
+              </label>
+            </div>
+            {filtersActive ? (
+              <button
+                type="button"
+                className="board-filters__clear"
+                onClick={() => {
+                  setAssigneeFilter('ALL');
+                  setPriorityFilter(priorityOrder);
+                  setDueFilter('ALL');
+                }}
+              >
+                Clear filters
+              </button>
+            ) : null}
+          </section>
+        ) : null}
+
         {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
         {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}
         {syncing && !loadingTasks && <div className="board-feedback board-feedback--info">Saving changes…</div>}
@@ -734,7 +894,11 @@ const BoardLayout = (): JSX.Element => {
           <section className="board-columns" aria-label="Workspace board">
             {columnDefinitions.map((column) => {
               const columnHidden = hiddenColumnSet.has(column.status);
-              const dropDisabled = columnHidden || !canMutateBoard;
+              const columnInteractionsDisabled = columnHidden || !canMutateBoard;
+              const dropDisabled = columnInteractionsDisabled || filtersActive;
+              const visibleTasks = visibleBoard[column.status];
+              const totalTasks = boardTasks[column.status].length;
+              const columnCountLabel = filtersActive ? `${visibleTasks.length}/${totalTasks}` : `${visibleTasks.length}`;
               return (
                 <Droppable droppableId={column.status} key={column.status} isDropDisabled={dropDisabled}>
                   {(provided, snapshot) => (
@@ -748,12 +912,12 @@ const BoardLayout = (): JSX.Element => {
                       <header className="board-column__header">
                         <h2>{column.title}</h2>
                         <div className="board-column__header-actions">
-                          <span className="board-column__count">{boardTasks[column.status].length}</span>
+                          <span className="board-column__count">{columnCountLabel}</span>
                           <button
                             type="button"
                             className="board-column__add-icon"
                             onClick={() => openTaskModal(column.status)}
-                            disabled={dropDisabled}
+                            disabled={columnInteractionsDisabled}
                             aria-label={`Add task to ${column.title}`}
                           >
                             +
@@ -776,12 +940,16 @@ const BoardLayout = (): JSX.Element => {
                             Show column
                           </button>
                         </div>
-                      ) : boardTasks[column.status].length === 0 ? (
-                        <div className="board-column__empty">No tasks yet. Add one to get started.</div>
+                      ) : visibleTasks.length === 0 ? (
+                        totalTasks === 0 ? (
+                          <div className="board-column__empty">No tasks yet. Add one to get started.</div>
+                        ) : (
+                          <div className="board-column__empty board-column__empty--filtered">No tasks match the current filters.</div>
+                        )
                       ) : (
                         <div className="board-column__tasks">
-                          {boardTasks[column.status].map((task, index) => (
-                            <Draggable draggableId={task.id} index={index} key={task.id}>
+                          {visibleTasks.map((task, index) => (
+                            <Draggable draggableId={task.id} index={index} key={task.id} isDragDisabled={filtersActive || columnInteractionsDisabled}>
                               {(dragProvided, dragSnapshot) => (
                                 <article
                                   ref={dragProvided.innerRef}
