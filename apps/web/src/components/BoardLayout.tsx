@@ -10,8 +10,17 @@ import { projectApi } from '../projects/projectApi.js';
 import { tasksApi } from '../tasks/taskApi.js';
 import { ApiError } from '../api/httpClient.js';
 import TaskDetailModal from '../tasks/components/TaskDetailModal.js';
+import InboxPanel from '../notifications/components/InboxPanel.js';
 
 type TaskStatus = TaskSummary['status'];
+
+interface OnboardingStep {
+  id: string;
+  title: string;
+  description: string;
+  completed: boolean;
+  action: 'PROFILE' | 'PROJECT' | 'INVITE' | 'TASK';
+}
 
 const columnDefinitions: Array<{ status: TaskStatus; title: string; description: string; className: string }> = [
   { status: 'TODO', title: 'Backlog', description: 'Ideas and new requests', className: 'backlog' },
@@ -144,6 +153,8 @@ const BoardLayout = (): JSX.Element => {
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskDetail, setTaskDetail] = useState<TaskSummary | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [inboxSummary, setInboxSummary] = useState({ unreadNotifications: 0, pendingInvites: 0 });
   const workspaceEnsuredRef = useRef(false);
   const projectEnsuredRef = useRef<Record<string, boolean>>({});
 
@@ -189,6 +200,45 @@ const BoardLayout = (): JSX.Element => {
     totalTaskCount
   ]);
 
+  const onboardingSteps = useMemo<OnboardingStep[]>(() => {
+    const profileCompleted =
+      (typeof auth.user?.avatarUrl === 'string' && auth.user.avatarUrl.trim().length > 0) ||
+      (typeof auth.user?.timezone === 'string' && auth.user.timezone.trim().length > 0);
+    const hasProject = projects.length > 0;
+    const teammateCount = workspaceMembers.filter((member) => member.userId !== auth.user?.id).length;
+    const taskCount = totalTaskCount;
+    return [
+      {
+        id: 'profile',
+        title: 'Complete your profile',
+        description: 'Add an avatar or timezone so teammates recognize you.',
+        completed: profileCompleted,
+        action: 'PROFILE'
+      },
+      {
+        id: 'project',
+        title: 'Launch your first project',
+        description: 'Create or select a project to organise work.',
+        completed: hasProject,
+        action: 'PROJECT'
+      },
+      {
+        id: 'invite',
+        title: 'Invite a teammate',
+        description: 'Share your workspace with collaborators.',
+        completed: teammateCount > 0,
+        action: 'INVITE'
+      },
+      {
+        id: 'task',
+        title: 'Add your first task',
+        description: 'Capture work items to keep momentum.',
+        completed: taskCount > 0,
+        action: 'TASK'
+      }
+    ];
+  }, [auth.user?.avatarUrl, auth.user?.id, auth.user?.timezone, projects.length, totalTaskCount, workspaceMembers]);
+
   const hiddenColumnSet = useMemo(() => new Set<TaskStatus>(hiddenColumns), [hiddenColumns]);
   const filtersActive = useMemo(
     () =>
@@ -197,6 +247,11 @@ const BoardLayout = (): JSX.Element => {
       dueFilter !== 'ALL' ||
       searchQuery.trim().length > 0,
     [assigneeFilter, priorityFilter, dueFilter, searchQuery]
+  );
+
+  const inboxBadge = useMemo(
+    () => inboxSummary.unreadNotifications + inboxSummary.pendingInvites,
+    [inboxSummary.pendingInvites, inboxSummary.unreadNotifications]
   );
   const visibleBoard = useMemo(() => {
     const now = Date.now();
@@ -826,6 +881,14 @@ const BoardLayout = (): JSX.Element => {
             </div>
             <button
               type="button"
+              className={`board-button board-button--ghost board-button--inbox${inboxBadge > 0 ? ' board-button--inbox-active' : ''}`}
+              onClick={() => setInboxOpen(true)}
+            >
+              Inbox
+              {inboxBadge > 0 ? <span className="board-button__pill">{inboxBadge}</span> : null}
+            </button>
+            <button
+              type="button"
               className="board-button board-button--ghost"
               onClick={() => openTaskModal('TODO')}
               disabled={!canMutateBoard}
@@ -1011,6 +1074,11 @@ const BoardLayout = (): JSX.Element => {
                                   >
                                     <h3>{task.title}</h3>
                                     {task.description && <p>{task.description}</p>}
+                                    {task.checklistTotalCount > 0 ? (
+                                      <span className="board-task__meta">
+                                        Checklist {task.checklistCompletedCount}/{task.checklistTotalCount}
+                                      </span>
+                                    ) : null}
                                     <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
                                   </div>
                                   <div
@@ -1067,6 +1135,24 @@ const BoardLayout = (): JSX.Element => {
         onTaskUpdated={handleTaskUpdatedFromModal}
         onTaskDeleted={handleTaskDeletedFromModal}
       />
+
+      <Modal open={inboxOpen} onClose={() => setInboxOpen(false)} title="Inbox">
+        <InboxPanel
+          accessToken={accessToken}
+          steps={onboardingSteps}
+          onCountsChange={(summary) => {
+            setInboxSummary(summary);
+          }}
+          onRequestSettings={() => {
+            setInboxOpen(false);
+            setSettingsOpen(true);
+          }}
+          onRequestNewTask={() => {
+            setInboxOpen(false);
+            openTaskModal('TODO');
+          }}
+        />
+      </Modal>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Account & Workspace">
         <AuthPanel />

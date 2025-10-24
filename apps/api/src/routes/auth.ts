@@ -53,6 +53,22 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         email,
         passwordHash,
         name: body.name,
+        notifications: {
+          create: [
+            {
+              type: 'ONBOARDING_WELCOME',
+              payload: {
+                title: 'Welcome to Taskflow',
+                description: 'Create a workspace to invite your team and start planning work.',
+                action: {
+                  type: 'OPEN_SETTINGS',
+                  target: 'workspace',
+                  label: 'Open workspace setup'
+                }
+              }
+            }
+          ]
+        },
         notificationPreference: {
           create: {}
         }
@@ -279,6 +295,14 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     const invite = await app.prisma.workspaceInvite.findFirst({
       where: {
         token: body.token
+      },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       }
     });
 
@@ -316,7 +340,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       const now = new Date();
 
       const { user, preference } = await app.prisma.$transaction(async (tx) => {
-        await tx.membership.upsert({
+        const membership = await tx.membership.upsert({
           where: {
             workspaceId_userId: {
               workspaceId: invite.workspaceId,
@@ -332,12 +356,26 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
             role: invite.role
           }
         });
+        const membershipCreated = membership.createdAt.getTime() === membership.updatedAt.getTime();
 
         let preferenceRecord = userRecord.notificationPreference;
         if (!preferenceRecord) {
           preferenceRecord = await tx.notificationPreference.create({
             data: {
               userId: userRecord.id
+            }
+          });
+        }
+
+        if (membershipCreated) {
+          await tx.notification.create({
+            data: {
+              userId: userRecord.id,
+              type: 'WORKSPACE_JOINED',
+              payload: {
+                workspaceId: invite.workspaceId,
+                workspaceName: invite.workspace.name
+              }
             }
           });
         }
@@ -386,6 +424,29 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
           email: invite.email,
           passwordHash,
           name: accountName,
+          notifications: {
+            create: [
+              {
+                type: 'ONBOARDING_WELCOME',
+                payload: {
+                  title: 'Welcome to Taskflow',
+                  description: 'Create a workspace to invite your team and start planning work.',
+                  action: {
+                    type: 'OPEN_SETTINGS',
+                    target: 'workspace',
+                    label: 'Open workspace setup'
+                  }
+                }
+              },
+              {
+                type: 'WORKSPACE_JOINED',
+                payload: {
+                  workspaceId: invite.workspaceId,
+                  workspaceName: invite.workspace.name
+                }
+              }
+            ]
+          },
           notificationPreference: {
             create: {}
           }

@@ -63,39 +63,39 @@ enum ActivityAction {
 }
 
 model User {
-  id             String             @id @default(uuid()) @db.Uuid
-  email          String             @unique
-  passwordHash   String
-  name           String
-  avatarUrl      String?
-  timezone       String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  timezone     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  memberships    Membership[]
-  ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
-  projectsOwned  Project[]          @relation("ProjectOwner")
-  tasksCreated   Task[]             @relation("TaskCreator")
-  tasksAssigned  Task[]             @relation("TaskAssignee")
-  comments       Comment[]
-  attachments    Attachment[]
-  notifications  Notification[]
-  authTokens     AuthToken[]
-  invitesSent    WorkspaceInvite[]  @relation("InviteSender")
-  activities     Activity[]         @relation("ActivityActor")
+  memberships            Membership[]
+  ownedWorkspaces        Workspace[]             @relation("WorkspaceOwner")
+  projectsOwned          Project[]               @relation("ProjectOwner")
+  tasksCreated           Task[]                  @relation("TaskCreator")
+  tasksAssigned          Task[]                  @relation("TaskAssignee")
+  comments               Comment[]
+  attachments            Attachment[]
+  notifications          Notification[]
+  authTokens             AuthToken[]
+  invitesSent            WorkspaceInvite[]       @relation("InviteSender")
+  activities             Activity[]              @relation("ActivityActor")
   notificationPreference NotificationPreference?
 }
 
 model Workspace {
-  id          String        @id @default(uuid()) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   name        String
-  slug        String        @unique
+  slug        String   @unique
   description String?
-  ownerId     String        @db.Uuid
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  ownerId     String   @db.Uuid
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  owner       User          @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
   memberships Membership[]
   projects    Project[]
   invites     WorkspaceInvite[]
@@ -112,8 +112,8 @@ model Membership {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  workspace   Workspace      @relation(fields: [workspaceId], references: [id])
-  user        User           @relation(fields: [userId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@unique([workspaceId, userId])
   @@index([userId])
@@ -131,9 +131,9 @@ model Project {
   updatedAt   DateTime      @updatedAt
   archivedAt  DateTime?
 
-  workspace   Workspace     @relation(fields: [workspaceId], references: [id])
-  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
-  tasks       Task[]
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  owner     User      @relation("ProjectOwner", fields: [ownerId], references: [id])
+  tasks     Task[]
 
   @@unique([workspaceId, key])
   @@index([workspaceId])
@@ -155,11 +155,12 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  project     Project      @relation(fields: [projectId], references: [id])
-  creator     User         @relation("TaskCreator", fields: [creatorId], references: [id])
-  assignee    User?        @relation("TaskAssignee", fields: [assigneeId], references: [id])
-  comments    Comment[]
-  attachments Attachment[]
+  project        Project             @relation(fields: [projectId], references: [id])
+  creator        User                @relation("TaskCreator", fields: [creatorId], references: [id])
+  assignee       User?               @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  checklistItems TaskChecklistItem[]
+  comments       Comment[]
+  attachments    Attachment[]
 
   @@index([projectId])
   @@index([assigneeId])
@@ -174,8 +175,8 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  task      Task     @relation(fields: [taskId], references: [id])
-  author    User     @relation(fields: [authorId], references: [id])
+  task   Task @relation(fields: [taskId], references: [id])
+  author User @relation(fields: [authorId], references: [id])
 
   @@index([taskId])
 }
@@ -190,36 +191,50 @@ model Attachment {
   storageKey  String   @unique
   createdAt   DateTime @default(now())
 
-  task        Task     @relation(fields: [taskId], references: [id])
-  uploader    User     @relation(fields: [uploaderId], references: [id])
+  task     Task @relation(fields: [taskId], references: [id])
+  uploader User @relation(fields: [uploaderId], references: [id])
+
+  @@index([taskId])
+}
+
+model TaskChecklistItem {
+  id          String    @id @default(uuid()) @db.Uuid
+  taskId      String    @db.Uuid
+  label       String
+  position    Decimal   @default(0)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  task Task @relation(fields: [taskId], references: [id])
 
   @@index([taskId])
 }
 
 model Notification {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
   type      String
   payload   Json
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
-  user      User     @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId, readAt])
 }
 
 model NotificationPreference {
-  id                 String  @id @default(uuid()) @db.Uuid
-  userId             String  @unique @db.Uuid
-  emailMentions      Boolean @default(true)
-  emailTaskUpdates   Boolean @default(true)
-  inAppMentions      Boolean @default(true)
-  inAppTaskUpdates   Boolean @default(true)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @db.Uuid
+  emailMentions    Boolean  @default(true)
+  emailTaskUpdates Boolean  @default(true)
+  inAppMentions    Boolean  @default(true)
+  inAppTaskUpdates Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  user               User    @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 model AuthToken {
@@ -234,41 +249,41 @@ model AuthToken {
   ipAddress  String?
   createdAt  DateTime      @default(now())
 
-  user       User          @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
 }
 
 model WorkspaceInvite {
-  id         String         @id @default(uuid()) @db.Uuid
-  workspaceId String        @db.Uuid
-  inviterId  String         @db.Uuid
-  email      String
-  role       MembershipRole @default(CONTRIBUTOR)
-  token      String         @unique
-  expiresAt  DateTime
-  acceptedAt DateTime?
-  createdAt  DateTime       @default(now())
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String         @db.Uuid
+  inviterId   String         @db.Uuid
+  email       String
+  role        MembershipRole @default(CONTRIBUTOR)
+  token       String         @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime       @default(now())
 
-  workspace  Workspace      @relation(fields: [workspaceId], references: [id])
-  inviter    User           @relation("InviteSender", fields: [inviterId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  inviter   User      @relation("InviteSender", fields: [inviterId], references: [id])
 
   @@index([workspaceId])
   @@index([email])
 }
 
 model Activity {
-  id          String          @id @default(uuid()) @db.Uuid
-  workspaceId String          @db.Uuid
-  actorId     String?         @db.Uuid
+  id          String         @id @default(uuid()) @db.Uuid
+  workspaceId String         @db.Uuid
+  actorId     String?        @db.Uuid
   entityType  ActivityEntity
   entityId    String
   action      ActivityAction
   metadata    Json?
-  createdAt   DateTime        @default(now())
+  createdAt   DateTime       @default(now())
 
-  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
-  actor       User?           @relation("ActivityActor", fields: [actorId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+  actor     User?     @relation("ActivityActor", fields: [actorId], references: [id])
 
   @@index([workspaceId])
   @@index([entityType, entityId])

@@ -10,6 +10,7 @@ import {
 import { userSummarySchema } from './user.js';
 import { commentSummarySchema } from './comment.js';
 import { attachmentSummarySchema } from './attachment.js';
+import { taskChecklistItemSchema } from './checklist.js';
 
 export const taskSummarySchema = z.object({
   id: uuidSchema,
@@ -23,7 +24,9 @@ export const taskSummarySchema = z.object({
   sortOrder: z.number(),
   dueDate: isoDateTimeSchema.nullable(),
   createdAt: isoDateTimeSchema,
-  updatedAt: isoDateTimeSchema
+  updatedAt: isoDateTimeSchema,
+  checklistCompletedCount: z.number().nonnegative(),
+  checklistTotalCount: z.number().nonnegative()
 });
 
 export const taskDetailSchema = taskSummarySchema.extend({
@@ -31,6 +34,7 @@ export const taskDetailSchema = taskSummarySchema.extend({
   completedAt: isoDateTimeSchema.nullable(),
   creator: userSummarySchema,
   assignee: userSummarySchema.nullable(),
+  checklist: taskChecklistItemSchema.array(),
   comments: commentSummarySchema.array(),
   attachments: attachmentSummarySchema.array()
 });

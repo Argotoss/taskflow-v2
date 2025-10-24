@@ -19,4 +19,8 @@ export const notificationListQuerySchema = paginationQuerySchema.extend({
   unreadOnly: z.coerce.boolean().optional()
 });
 
+export const markNotificationReadResponseSchema = z.object({
+  data: notificationSummarySchema
+});
+
 export type NotificationSummary = z.infer<typeof notificationSummarySchema>;

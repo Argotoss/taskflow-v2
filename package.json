@@ -22,6 +22,9 @@
     "lint": "eslint .",
     "test": "npm run test --if-present --workspaces"
   },
+  "prisma": {
+    "schema": "packages/db/prisma/schema.prisma"
+  },
   "devDependencies": {
     "@eslint/js": "^8.56.0",
     "@typescript-eslint/eslint-plugin": "^6.21.0",

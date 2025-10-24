@@ -1,5 +1,5 @@
 import { Prisma } from '@taskflow/db';
-import type { Membership, NotificationPreference, Project, User, Workspace, WorkspaceInvite } from '@taskflow/db';
+import type { Membership, Notification, NotificationPreference, Project, User, Workspace, WorkspaceInvite } from '@taskflow/db';
 
 const timestamp = (value = '2024-01-01T00:00:00.000Z'): Date => new Date(value);
 
@@ -40,6 +40,12 @@ export type TaskSummaryRecord = Prisma.TaskGetPayload<{
     dueDate: true;
     createdAt: true;
     updatedAt: true;
+    checklistItems: {
+      select: {
+        id: true;
+        completedAt: true;
+      };
+    };
   };
 }>;
 export type TaskWithWorkspace = Prisma.TaskGetPayload<{ select: { id: true; project: { select: { workspaceId: true } } } }>;
@@ -62,7 +68,7 @@ export type AttachmentWithUploader = Prisma.AttachmentGetPayload<{
       };
     };
   };
-}>;
+}>; 
 export type CommentWithAuthor = Prisma.CommentGetPayload<{
   select: {
     id: true;
@@ -80,8 +86,20 @@ export type CommentWithAuthor = Prisma.CommentGetPayload<{
       };
     };
   };
-}>;
+}>; 
 export type WorkspaceInviteRecord = WorkspaceInvite;
+export type NotificationRecord = Notification;
+export type TaskChecklistItemRecord = Prisma.TaskChecklistItemGetPayload<{
+  select: {
+    id: true;
+    taskId: true;
+    label: true;
+    position: true;
+    completedAt: true;
+    createdAt: true;
+    updatedAt: true;
+  };
+}>;
 
 export const buildNotificationPreference = (
   overrides: Partial<NotificationPreferenceRecord> = {}
@@ -218,7 +236,10 @@ export const buildTaskSummary = (overrides: Partial<TaskSummaryRecord> = {}): Ta
   sortOrder: overrides.sortOrder ?? new Prisma.Decimal(0),
   dueDate: Object.prototype.hasOwnProperty.call(overrides, 'dueDate') ? overrides.dueDate ?? null : timestamp('2024-02-01T00:00:00.000Z'),
   createdAt: overrides.createdAt ?? timestamp(),
-  updatedAt: overrides.updatedAt ?? timestamp()
+  updatedAt: overrides.updatedAt ?? timestamp(),
+  checklistItems:
+    overrides.checklistItems ??
+    []
 });
 
 export const buildTaskWithWorkspace = (
@@ -277,5 +298,28 @@ export const buildWorkspaceInvite = (
   token: overrides.token ?? 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   expiresAt: overrides.expiresAt ?? timestamp('2024-02-01T00:00:00.000Z'),
   acceptedAt: Object.prototype.hasOwnProperty.call(overrides, 'acceptedAt') ? overrides.acceptedAt ?? null : null,
+  createdAt: overrides.createdAt ?? timestamp()
+});
+
+export const buildTaskChecklistItem = (
+  overrides: Partial<TaskChecklistItemRecord> = {}
+): TaskChecklistItemRecord => ({
+  id: overrides.id ?? 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+  taskId: overrides.taskId ?? 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+  label: overrides.label ?? 'Checklist item',
+  position: overrides.position ?? new Prisma.Decimal(1),
+  completedAt: Object.prototype.hasOwnProperty.call(overrides, 'completedAt') ? overrides.completedAt ?? null : null,
+  createdAt: overrides.createdAt ?? timestamp(),
+  updatedAt: overrides.updatedAt ?? timestamp()
+});
+
+export const buildNotification = (
+  overrides: Partial<NotificationRecord> = {}
+): NotificationRecord => ({
+  id: overrides.id ?? 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+  userId: overrides.userId ?? '00000000-0000-0000-0000-000000000000',
+  type: overrides.type ?? 'ONBOARDING_WELCOME',
+  payload: overrides.payload ?? { title: 'Welcome to Taskflow' },
+  readAt: Object.prototype.hasOwnProperty.call(overrides, 'readAt') ? overrides.readAt ?? null : null,
   createdAt: overrides.createdAt ?? timestamp()
 });

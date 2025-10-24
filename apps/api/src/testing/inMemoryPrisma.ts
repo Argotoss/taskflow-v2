@@ -9,6 +9,7 @@ import type {
   NotificationPreference,
   Project,
   Task,
+  TaskChecklistItem,
   User,
   Workspace,
   WorkspaceInvite
@@ -128,6 +129,11 @@ const matchTask = (where: unknown, record: Task): boolean => {
   return true;
 };
 
+type ChecklistItemFilter = {
+  taskId?: string;
+  id?: string;
+};
+
 const matchInvite = (where: unknown, record: WorkspaceInvite): boolean => {
   if (!where) {
     return true;
@@ -159,6 +165,20 @@ const matchInvite = (where: unknown, record: WorkspaceInvite): boolean => {
   return true;
 };
 
+const matchChecklistItem = (where: unknown, record: TaskChecklistItem): boolean => {
+  if (!where) {
+    return true;
+  }
+  const filter = where as ChecklistItemFilter;
+  if (filter.taskId && filter.taskId !== record.taskId) {
+    return false;
+  }
+  if (filter.id && filter.id !== record.id) {
+    return false;
+  }
+  return true;
+};
+
 const cloneDate = (value: Date): Date => new Date(value);
 
 const cloneWorkspace = (record: Workspace): Workspace => ({
@@ -183,6 +203,14 @@ const cloneTask = (record: Task): Task => ({
   ...record,
   sortOrder: new Prisma.Decimal(record.sortOrder),
   dueDate: record.dueDate ? cloneDate(record.dueDate) : null,
+  createdAt: cloneDate(record.createdAt),
+  updatedAt: cloneDate(record.updatedAt)
+});
+
+const cloneChecklistItem = (record: TaskChecklistItem): TaskChecklistItem => ({
+  ...record,
+  position: record.position instanceof Prisma.Decimal ? record.position : new Prisma.Decimal(record.position),
+  completedAt: record.completedAt ? cloneDate(record.completedAt) : null,
   createdAt: cloneDate(record.createdAt),
   updatedAt: cloneDate(record.updatedAt)
 });
@@ -217,6 +245,7 @@ export class InMemoryPrisma {
   private readonly tasks = new Map<string, Task>();
   private readonly comments = new Map<string, Comment>();
   private readonly attachments = new Map<string, Attachment>();
+  private readonly checklistItems = new Map<string, TaskChecklistItem>();
   private readonly invites = new Map<string, WorkspaceInvite>();
   private readonly users = new Map<string, User>();
   private readonly preferences = new Map<string, NotificationPreference>();
@@ -230,6 +259,7 @@ export class InMemoryPrisma {
     this.tasks.clear();
     this.comments.clear();
     this.attachments.clear();
+    this.checklistItems.clear();
     this.invites.clear();
     this.preferences.clear();
     this.tokens.clear();
@@ -285,6 +315,12 @@ export class InMemoryPrisma {
       vi.spyOn(app.prisma.task, 'findUnique').mockImplementation(this.taskFindUnique),
       vi.spyOn(app.prisma.task, 'update').mockImplementation(this.taskUpdate),
       vi.spyOn(app.prisma.task, 'delete').mockImplementation(this.taskDelete),
+      vi.spyOn(app.prisma.taskChecklistItem, 'aggregate').mockImplementation(this.checklistAggregate),
+      vi.spyOn(app.prisma.taskChecklistItem, 'findMany').mockImplementation(this.checklistFindMany),
+      vi.spyOn(app.prisma.taskChecklistItem, 'create').mockImplementation(this.checklistCreate),
+      vi.spyOn(app.prisma.taskChecklistItem, 'update').mockImplementation(this.checklistUpdate),
+      vi.spyOn(app.prisma.taskChecklistItem, 'delete').mockImplementation(this.checklistDelete),
+      vi.spyOn(app.prisma.taskChecklistItem, 'deleteMany').mockImplementation(this.checklistDeleteMany),
       vi.spyOn(app.prisma.workspaceInvite, 'deleteMany').mockImplementation(this.inviteDeleteMany),
       vi.spyOn(app.prisma.workspaceInvite, 'create').mockImplementation(this.inviteCreate),
       vi.spyOn(app.prisma.workspaceInvite, 'findMany').mockImplementation(this.inviteFindMany),
@@ -608,7 +644,80 @@ export class InMemoryPrisma {
     return { _max: { sortOrder: new Prisma.Decimal(max) } };
   };
 
-  private taskCreate = async (args: Prisma.TaskCreateArgs): Promise<Task> => {
+  private checklistAggregate = async (args: Prisma.TaskChecklistItemAggregateArgs): Promise<{ _max: { position: Prisma.Decimal | null } }> => {
+    const filtered = Array.from(this.checklistItems.values()).filter((record) => matchChecklistItem(args.where, record));
+    if (!args._max?.position || filtered.length === 0) {
+      return { _max: { position: null } };
+    }
+    const max = filtered.reduce((highest, record) => {
+      const value = record.position instanceof Prisma.Decimal ? record.position.toNumber() : Number(record.position);
+      return value > highest ? value : highest;
+    }, 0);
+    return { _max: { position: new Prisma.Decimal(max) } };
+  };
+
+  private getChecklistItemsForTask = (taskId: string): TaskChecklistItem[] => {
+    return Array.from(this.checklistItems.values())
+      .filter((item) => item.taskId === taskId)
+      .sort((left, right) => {
+        const a = left.position instanceof Prisma.Decimal ? left.position.toNumber() : Number(left.position);
+        const b = right.position instanceof Prisma.Decimal ? right.position.toNumber() : Number(right.position);
+        return a - b;
+      })
+      .map((item) => cloneChecklistItem(item));
+  };
+
+  private formatChecklistSelection = (
+    taskId: string,
+    selection?: boolean | Prisma.TaskChecklistItemFindManyArgs
+  ): unknown => {
+    const items = this.getChecklistItemsForTask(taskId);
+    if (!selection || selection === true) {
+      return items;
+    }
+    const select = 'select' in selection && selection.select ? selection.select : null;
+    if (!select) {
+      return items;
+    }
+    const keys = Object.entries(select).filter(([, include]) => include);
+    return items.map((item) => {
+      const projected: Record<string, unknown> = {};
+      keys.forEach(([key]) => {
+        projected[key] = (item as Record<string, unknown>)[key];
+      });
+      return projected;
+    });
+  };
+
+  private presentTask = (record: Task, select?: Prisma.TaskSelect): unknown => {
+    const base = cloneTask(record);
+    if (!select) {
+      return {
+        ...base,
+        checklistItems: this.getChecklistItemsForTask(record.id)
+      };
+    }
+    const result: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(select)) {
+      if (!value) {
+        continue;
+      }
+      if (key === 'checklistItems') {
+        result.checklistItems = this.formatChecklistSelection(record.id, value === true ? true : (value as Prisma.TaskChecklistItemFindManyArgs));
+        continue;
+      }
+      result[key] = (base as Record<string, unknown>)[key];
+    }
+    if (select.checklistItems && result.checklistItems === undefined) {
+      result.checklistItems = this.formatChecklistSelection(
+        record.id,
+        select.checklistItems === true ? true : (select.checklistItems as Prisma.TaskChecklistItemFindManyArgs)
+      );
+    }
+    return result;
+  };
+
+  private taskCreate = async (args: Prisma.TaskCreateArgs): Promise<unknown> => {
     const record: Task = {
       id: crypto.randomUUID(),
       projectId: args.data.projectId,
@@ -626,7 +735,7 @@ export class InMemoryPrisma {
       updatedAt: now()
     };
     this.tasks.set(record.id, record);
-    return cloneTask(record);
+    return this.presentTask(record, args.select ?? undefined);
   };
 
   private taskFindMany = async (args: Prisma.TaskFindManyArgs): Promise<unknown[]> => {
@@ -641,10 +750,10 @@ export class InMemoryPrisma {
     const start = args.skip ?? 0;
     const end = args.take ? start + args.take : undefined;
     const sliced = ordered.slice(start, end);
-    if (args.select?.id && Object.keys(args.select).length === 1) {
+    if (args.select?.id && Object.keys(args.select).length === 1 && !args.select.checklistItems) {
       return sliced.map((record) => ({ id: record.id }));
     }
-    return sliced.map((record) => cloneTask(record));
+    return sliced.map((record) => this.presentTask(record, args.select ?? undefined));
   };
 
   private taskCount = async (args: Prisma.TaskCountArgs): Promise<number> => {
@@ -674,15 +783,15 @@ export class InMemoryPrisma {
     return { count: entries.length };
   };
 
-  private taskFindUnique = async (args: Prisma.TaskFindUniqueArgs): Promise<Task | null> => {
+  private taskFindUnique = async (args: Prisma.TaskFindUniqueArgs): Promise<unknown> => {
     if (!args.where?.id) {
       return null;
     }
     const match = this.tasks.get(args.where.id);
-    return match ? cloneTask(match) : null;
+    return match ? this.presentTask(match, args.select ?? undefined) : null;
   };
 
-  private taskUpdate = async (args: Prisma.TaskUpdateArgs): Promise<Task> => {
+  private taskUpdate = async (args: Prisma.TaskUpdateArgs): Promise<unknown> => {
     if (!args.where.id) {
       throw new Error('Task identifier required');
     }
@@ -713,7 +822,7 @@ export class InMemoryPrisma {
       updatedAt: now()
     };
     this.tasks.set(updated.id, updated);
-    return cloneTask(updated);
+    return this.presentTask(updated, args.select ?? undefined);
   };
 
   private taskDelete = async (args: Prisma.TaskDeleteArgs): Promise<Task> => {
@@ -725,8 +834,87 @@ export class InMemoryPrisma {
       throw new Error('Task not found');
     }
     this.tasks.delete(existing.id);
+    for (const [id, item] of this.checklistItems.entries()) {
+      if (item.taskId === existing.id) {
+        this.checklistItems.delete(id);
+      }
+    }
     return cloneTask(existing);
   };
+
+  private checklistFindMany = async (args: Prisma.TaskChecklistItemFindManyArgs): Promise<TaskChecklistItem[]> => {
+    const filtered = Array.from(this.checklistItems.values()).filter((record) => matchChecklistItem(args.where, record));
+    const ordered = filtered.sort((left, right) => {
+      const a = left.position instanceof Prisma.Decimal ? left.position.toNumber() : Number(left.position);
+      const b = right.position instanceof Prisma.Decimal ? right.position.toNumber() : Number(right.position);
+      return a - b;
+    });
+    const start = args.skip ?? 0;
+    const end = args.take ? start + args.take : undefined;
+    return ordered.slice(start, end).map((item) => cloneChecklistItem(item));
+  };
+
+  private checklistCreate = async (args: Prisma.TaskChecklistItemCreateArgs): Promise<TaskChecklistItem> => {
+    const record: TaskChecklistItem = {
+      id: crypto.randomUUID(),
+      taskId: args.data.taskId,
+      label: args.data.label,
+      position:
+        args.data.position instanceof Prisma.Decimal ? args.data.position : new Prisma.Decimal(args.data.position ?? 0),
+      completedAt: args.data.completedAt ?? null,
+      createdAt: now(),
+      updatedAt: now()
+    };
+    this.checklistItems.set(record.id, record);
+    return cloneChecklistItem(record);
+  };
+
+  private checklistUpdate = async (args: Prisma.TaskChecklistItemUpdateArgs): Promise<TaskChecklistItem> => {
+    if (!args.where.id) {
+      throw new Error('Checklist item identifier required');
+    }
+    const existing = this.checklistItems.get(args.where.id);
+    if (!existing) {
+      throw new Error('Checklist item not found');
+    }
+    const updated: TaskChecklistItem = {
+      ...existing,
+      label: args.data.label ?? existing.label,
+      completedAt: Object.prototype.hasOwnProperty.call(args.data, 'completedAt')
+        ? ((args.data.completedAt as Date | null | undefined) ?? null)
+        : existing.completedAt,
+      position:
+        args.data.position instanceof Prisma.Decimal
+          ? args.data.position
+          : args.data.position
+            ? new Prisma.Decimal(args.data.position)
+            : existing.position,
+      updatedAt: now()
+    };
+    this.checklistItems.set(updated.id, updated);
+    return cloneChecklistItem(updated);
+  };
+
+  private checklistDelete = async (args: Prisma.TaskChecklistItemDeleteArgs): Promise<TaskChecklistItem> => {
+    if (!args.where.id) {
+      throw new Error('Checklist item identifier required');
+    }
+    const existing = this.checklistItems.get(args.where.id);
+    if (!existing) {
+      throw new Error('Checklist item not found');
+    }
+    this.checklistItems.delete(existing.id);
+    return cloneChecklistItem(existing);
+  };
+
+  private checklistDeleteMany = async (args: Prisma.TaskChecklistItemDeleteManyArgs): Promise<{ count: number }> => {
+    const entries = Array.from(this.checklistItems.values()).filter((record) => matchChecklistItem(args.where, record));
+    entries.forEach((entry) => {
+      this.checklistItems.delete(entry.id);
+    });
+    return { count: entries.length };
+  };
+
   private commentDeleteMany = async (args: Prisma.CommentDeleteManyArgs): Promise<{ count: number }> => {
     const taskId = args.where?.taskId;
     if (!taskId) {
@@ -1022,6 +1210,9 @@ export class InMemoryPrisma {
         findUnique: this.taskFindUnique,
         update: this.taskUpdate,
         delete: this.taskDelete
+      },
+      taskChecklistItem: {
+        deleteMany: async () => ({ count: 0 })
       },
       comment: {
         deleteMany: this.commentDeleteMany

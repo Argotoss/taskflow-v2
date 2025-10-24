@@ -147,6 +147,9 @@ describe('task routes', () => {
     vi.spyOn(app.prisma.task, 'findUnique').mockResolvedValue(
       { id: taskRecord.id, projectId } as unknown as Awaited<ReturnType<typeof app.prisma.task.findUnique>>
     );
+    const deleteChecklistSpy = vi
+      .spyOn(app.prisma.taskChecklistItem, 'deleteMany')
+      .mockResolvedValue({ count: 2 } as unknown as Awaited<ReturnType<typeof app.prisma.taskChecklistItem.deleteMany>>);
     const deleteCommentsSpy = vi
       .spyOn(app.prisma.comment, 'deleteMany')
       .mockResolvedValue({ count: 2 } as unknown as Awaited<ReturnType<typeof app.prisma.comment.deleteMany>>);
@@ -172,6 +175,7 @@ describe('task routes', () => {
     });
 
     expect(response.statusCode).toBe(204);
+    expect(deleteChecklistSpy).toHaveBeenCalledWith({ where: { taskId: taskRecord.id } });
     expect(deleteCommentsSpy).toHaveBeenCalledWith({ where: { taskId: taskRecord.id } });
     expect(deleteAttachmentsSpy).toHaveBeenCalledWith({ where: { taskId: taskRecord.id } });
     expect(deleteTaskSpy).toHaveBeenCalledWith({ where: { id: taskRecord.id } });

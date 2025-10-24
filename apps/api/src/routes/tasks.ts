@@ -12,6 +12,7 @@ import {
 } from '@taskflow/types';
 import { requireUserId } from '../utils/current-user.js';
 import { Prisma } from '@taskflow/db';
+import { ensureProjectAccess } from '../utils/project-access.js';
 
 type TaskRecord = Prisma.TaskGetPayload<{
   select: {
@@ -27,6 +28,12 @@ type TaskRecord = Prisma.TaskGetPayload<{
     dueDate: true;
     createdAt: true;
     updatedAt: true;
+    checklistItems: {
+      select: {
+        id: true;
+        completedAt: true;
+      };
+    };
   };
 }>;
 
@@ -34,8 +41,11 @@ type TaskStatus = TaskSummary['status'];
 
 const boardStatuses: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'BLOCKED', 'COMPLETED'];
 
-const serializeTask = (task: TaskRecord): TaskSummary =>
-  taskSummarySchema.parse({
+const serializeTask = (task: TaskRecord): TaskSummary => {
+  const checklistItems = task.checklistItems ?? [];
+  const checklistTotal = checklistItems.length;
+  const checklistCompleted = checklistItems.filter((item) => item.completedAt).length;
+  return taskSummarySchema.parse({
     id: task.id,
     projectId: task.projectId,
     creatorId: task.creatorId,
@@ -47,39 +57,10 @@ const serializeTask = (task: TaskRecord): TaskSummary =>
     sortOrder: Number(task.sortOrder),
     dueDate: task.dueDate ? task.dueDate.toISOString() : null,
     createdAt: task.createdAt.toISOString(),
-    updatedAt: task.updatedAt.toISOString()
+    updatedAt: task.updatedAt.toISOString(),
+    checklistCompletedCount: checklistCompleted,
+    checklistTotalCount: checklistTotal
   });
-
-const ensureProjectAccess = async (
-  app: FastifyInstance,
-  projectId: string,
-  userId: string
-): Promise<{ id: string; workspaceId: string; ownerId: string }> => {
-  const project = await app.prisma.project.findUnique({
-    where: { id: projectId },
-    select: {
-      id: true,
-      workspaceId: true,
-      ownerId: true
-    }
-  });
-
-  if (!project) {
-    throw app.httpErrors.notFound('Project not found');
-  }
-
-  const membership = await app.prisma.membership.findFirst({
-    where: {
-      workspaceId: project.workspaceId,
-      userId
-    }
-  });
-
-  if (!membership) {
-    throw app.httpErrors.forbidden('Insufficient permissions for project');
-  }
-
-  return project;
 };
 
 export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> => {
@@ -123,7 +104,13 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
           sortOrder: true,
           dueDate: true,
           createdAt: true,
-          updatedAt: true
+          updatedAt: true,
+          checklistItems: {
+            select: {
+              id: true,
+              completedAt: true
+            }
+          }
         }
       }),
       app.prisma.task.count({ where: filter })
@@ -178,7 +165,13 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         sortOrder: true,
         dueDate: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        checklistItems: {
+          select: {
+            id: true,
+            completedAt: true
+          }
+        }
       }
     });
 
@@ -254,7 +247,13 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
         sortOrder: true,
         dueDate: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        checklistItems: {
+          select: {
+            id: true,
+            completedAt: true
+          }
+        }
       }
     });
 
@@ -359,6 +358,9 @@ export const registerTaskRoutes = async (app: FastifyInstance): Promise<void> =>
     await ensureProjectAccess(app, task.projectId, userId);
 
     await app.prisma.$transaction([
+      app.prisma.taskChecklistItem.deleteMany({
+        where: { taskId: params.taskId }
+      }),
       app.prisma.comment.deleteMany({
         where: { taskId: params.taskId }
       }),

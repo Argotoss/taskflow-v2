@@ -13,6 +13,8 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerCommentRoutes } from './routes/comments.js';
 import { registerAttachmentRoutes } from './routes/attachments.js';
+import { registerNotificationRoutes } from './routes/notifications.js';
+import { registerTaskChecklistRoutes } from './routes/task-checklists.js';
 import staticAssetsPlugin from './plugins/static.js';
 import rateLimitPlugin from './plugins/rate-limit.js';
 
@@ -31,8 +33,10 @@ export const buildApp = (): FastifyInstance => {
   app.register(registerWorkspaceRoutes);
   app.register(registerProjectRoutes);
   app.register(registerTaskRoutes);
+  app.register(registerTaskChecklistRoutes);
   app.register(registerCommentRoutes);
   app.register(registerAttachmentRoutes);
+  app.register(registerNotificationRoutes);
   void app.register(staticAssetsPlugin);
 
   return app;

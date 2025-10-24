@@ -9,7 +9,8 @@ import {
   buildNotificationPreference,
   buildUser,
   buildUserWithPreferences,
-  buildWorkspaceInvite
+  buildWorkspaceInvite,
+  type WorkspaceInviteRecord
 } from '../testing/builders.js';
 
 const refreshCookieName = 'taskflow_refresh_token';
@@ -22,6 +23,22 @@ const mockTokens: TokenPair = {
 };
 
 const now = new Date('2024-01-01T00:00:00Z');
+
+type InviteOverrides = Partial<WorkspaceInviteRecord> & { workspaceName?: string };
+
+const buildInviteWithWorkspace = (overrides: InviteOverrides = {}): WorkspaceInviteRecord & {
+  workspace: { id: string; name: string };
+} => {
+  const { workspaceName, ...inviteOverrides } = overrides;
+  const invite = buildWorkspaceInvite(inviteOverrides);
+  return {
+    ...invite,
+    workspace: {
+      id: invite.workspaceId,
+      name: workspaceName ?? 'Demo Workspace'
+    }
+  };
+};
 
 const buildAuthHeader = (appInstance: ReturnType<typeof buildApp>): { authorization: string } => ({
   authorization: `Bearer ${appInstance.jwt.sign({ sub: demoUserId, type: 'access' })}`
@@ -349,16 +366,13 @@ describe('auth routes', () => {
   it('previews invite details', async () => {
     const inviteToken = '6ec0d384-a3a8-4b35-8f1e-6e445f061a45';
     const expiresAt = new Date(Date.now() + 3600_000);
-    vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue({
-      ...buildWorkspaceInvite({
+    vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(
+      buildInviteWithWorkspace({
         token: inviteToken,
-        expiresAt
-      }),
-      workspace: {
-        id: '11111111-1111-1111-1111-111111111111',
-        name: 'Demo Workspace'
-      }
-    } as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
+        expiresAt,
+        workspaceName: 'Demo Workspace'
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>
+    );
 
     const response = await app.inject({
       method: 'GET',
@@ -382,20 +396,23 @@ describe('auth routes', () => {
 
   it('accepts invite by creating a new account', async () => {
     const inviteToken = '5a4057f6-8d19-4cf6-9c13-32b62ed2e2d2';
-    const invite = buildWorkspaceInvite({
+    const invite = buildInviteWithWorkspace({
       token: inviteToken,
       email: 'new.member@taskflow.app',
       workspaceId: 'workspace-1',
       role: 'CONTRIBUTOR',
-      expiresAt: new Date(Date.now() + 3600_000)
+      expiresAt: new Date(Date.now() + 3600_000),
+      workspaceName: 'Workspace One'
     });
+    const { workspace: _workspace, ...inviteRecord } = invite;
+    void _workspace;
 
     vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
     vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(null);
 
     const createdUser = buildUserWithPreferences({
       id: demoUserId,
-      email: invite.email,
+      email: inviteRecord.email,
       name: 'New Member',
       createdAt: now,
       updatedAt: now
@@ -405,14 +422,14 @@ describe('auth routes', () => {
     const membershipCreateSpy = vi.spyOn(app.prisma.membership, 'create').mockResolvedValue(
       buildMembership({
         id: 'membership-1',
-        workspaceId: invite.workspaceId,
+        workspaceId: inviteRecord.workspaceId,
         userId: demoUserId,
-        role: invite.role
+        role: inviteRecord.role
       }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.create>>
     );
     const inviteUpdateSpy = vi.spyOn(app.prisma.workspaceInvite, 'update').mockResolvedValue(
       buildWorkspaceInvite({
-        ...invite,
+        ...inviteRecord,
         acceptedAt: new Date()
       }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.update>>
     );
@@ -446,7 +463,7 @@ describe('auth routes', () => {
   });
 
   it('requires name when creating account via invite', async () => {
-    const invite = buildWorkspaceInvite({
+    const invite = buildInviteWithWorkspace({
       token: '04c2759f-91f6-45e2-8b77-40c8a0e442c6',
       email: 'new.member@taskflow.app',
       workspaceId: 'workspace-1',
@@ -470,7 +487,7 @@ describe('auth routes', () => {
   });
 
   it('requires password when creating account via invite', async () => {
-    const invite = buildWorkspaceInvite({
+    const invite = buildInviteWithWorkspace({
       token: '2d093642-37d2-4f69-b83d-a10b3d5d3ba7',
       email: 'new.member@taskflow.app',
       workspaceId: 'workspace-1',
@@ -494,20 +511,22 @@ describe('auth routes', () => {
   });
 
   it('accepts invite for existing user after verifying password', async () => {
-    const invite = buildWorkspaceInvite({
+    const invite = buildInviteWithWorkspace({
       token: '3c266048-f787-4eee-9ed3-d51054f50c6d',
       email: 'existing@taskflow.app',
       workspaceId: 'workspace-1',
       role: 'ADMIN',
       expiresAt: new Date(Date.now() + 3600_000)
     });
+    const { workspace: _workspaceInvite, ...inviteRecord } = invite;
+    void _workspaceInvite;
 
     vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
 
     const passwordHash = await hashPassword('ComplexPass123!');
     const existingUser = buildUserWithPreferences({
       id: demoUserId,
-      email: invite.email,
+      email: inviteRecord.email,
       passwordHash,
       notificationPreference: buildNotificationPreference({
         id: 'pref-existing',
@@ -522,7 +541,7 @@ describe('auth routes', () => {
     const upsertSpy = vi.spyOn(app.prisma.membership, 'upsert').mockResolvedValue(
       buildMembership({
         id: 'membership-existing',
-        workspaceId: invite.workspaceId,
+        workspaceId: inviteRecord.workspaceId,
         userId: demoUserId,
         role: 'ADMIN'
       }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.upsert>>
@@ -530,12 +549,13 @@ describe('auth routes', () => {
 
     const inviteUpdateSpy = vi.spyOn(app.prisma.workspaceInvite, 'update').mockResolvedValue(
       buildWorkspaceInvite({
-        ...invite,
+        ...inviteRecord,
         acceptedAt: new Date()
       }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.update>>
     );
 
     const userReloadSpy = vi.spyOn(app.prisma.user, 'findUniqueOrThrow').mockResolvedValue(existingUser);
+    const notificationCreateSpy = vi.spyOn(app.prisma.notification, 'create').mockResolvedValue({} as never);
 
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (callback) => callback(app.prisma));
 
@@ -556,23 +576,35 @@ describe('auth routes', () => {
       where: { id: demoUserId },
       include: { notificationPreference: true }
     });
+    expect(notificationCreateSpy).toHaveBeenCalledWith({
+      data: {
+        userId: demoUserId,
+        type: 'WORKSPACE_JOINED',
+        payload: {
+          workspaceId: inviteRecord.workspaceId,
+          workspaceName: invite.workspace.name
+        }
+      }
+    });
     expect(createSessionSpy).toHaveBeenCalledWith(demoUserId, expect.any(Object));
   });
 
   it('accepts invite for authenticated user without requiring password', async () => {
-    const invite = buildWorkspaceInvite({
+    const invite = buildInviteWithWorkspace({
       token: 'e2c3f9ae-76f2-4d40-8a92-9049ddab7c07',
       email: 'existing@taskflow.app',
       workspaceId: 'workspace-1',
       role: 'ADMIN',
       expiresAt: new Date(Date.now() + 3600_000)
     });
+    const { workspace: _workspaceAuthenticated, ...inviteRecord } = invite;
+    void _workspaceAuthenticated;
 
     vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
 
     const existingUser = buildUserWithPreferences({
       id: demoUserId,
-      email: invite.email,
+      email: inviteRecord.email,
       passwordHash: await hashPassword('ComplexPass123!'),
       notificationPreference: buildNotificationPreference({
         id: 'pref-existing',
@@ -587,7 +619,7 @@ describe('auth routes', () => {
     const upsertSpy = vi.spyOn(app.prisma.membership, 'upsert').mockResolvedValue(
       buildMembership({
         id: 'membership-existing',
-        workspaceId: invite.workspaceId,
+        workspaceId: inviteRecord.workspaceId,
         userId: demoUserId,
         role: 'ADMIN'
       }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.upsert>>
@@ -595,12 +627,13 @@ describe('auth routes', () => {
 
     const inviteUpdateSpy = vi.spyOn(app.prisma.workspaceInvite, 'update').mockResolvedValue(
       buildWorkspaceInvite({
-        ...invite,
+        ...inviteRecord,
         acceptedAt: new Date()
       }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.update>>
     );
 
     const userReloadSpy = vi.spyOn(app.prisma.user, 'findUniqueOrThrow').mockResolvedValue(existingUser);
+    const notificationCreateSpy = vi.spyOn(app.prisma.notification, 'create').mockResolvedValue({} as never);
 
     vi.spyOn(app.prisma, '$transaction').mockImplementation(async (callback) => callback(app.prisma));
 
@@ -617,7 +650,84 @@ describe('auth routes', () => {
     expect(upsertSpy).toHaveBeenCalled();
     expect(inviteUpdateSpy).toHaveBeenCalled();
     expect(userReloadSpy).toHaveBeenCalled();
+    expect(notificationCreateSpy).toHaveBeenCalledWith({
+      data: {
+        userId: demoUserId,
+        type: 'WORKSPACE_JOINED',
+        payload: {
+          workspaceId: inviteRecord.workspaceId,
+          workspaceName: invite.workspace.name
+        }
+      }
+    });
     expect(createSessionSpy).toHaveBeenCalledWith(demoUserId, expect.any(Object));
+  });
+
+  it('does not duplicate workspace joined notification when membership already exists', async () => {
+    const invite = buildInviteWithWorkspace({
+      token: '7ef0a9e1-79a8-4845-8d0d-04c2e9478f78',
+      email: 'existing@taskflow.app',
+      workspaceId: 'workspace-1',
+      role: 'ADMIN',
+      expiresAt: new Date(Date.now() + 3600_000)
+    });
+    const { workspace: _workspaceExisting, ...inviteRecord } = invite;
+    void _workspaceExisting;
+
+    vi.spyOn(app.prisma.workspaceInvite, 'findFirst').mockResolvedValue(invite as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.findFirst>>);
+
+    const passwordHash = await hashPassword('ComplexPass123!');
+    const existingUser = buildUserWithPreferences({
+      id: demoUserId,
+      email: inviteRecord.email,
+      passwordHash,
+      notificationPreference: buildNotificationPreference({
+        id: 'pref-existing',
+        userId: demoUserId,
+        createdAt: now,
+        updatedAt: now
+      })
+    });
+
+    vi.spyOn(app.prisma.user, 'findUnique').mockResolvedValue(existingUser);
+
+    const upsertSpy = vi.spyOn(app.prisma.membership, 'upsert').mockResolvedValue(
+      buildMembership({
+        id: 'membership-existing',
+        workspaceId: inviteRecord.workspaceId,
+        userId: demoUserId,
+        role: 'ADMIN',
+        createdAt: new Date('2024-01-01T00:00:00Z'),
+        updatedAt: new Date('2024-01-05T00:00:00Z')
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.membership.upsert>>
+    );
+
+    const inviteUpdateSpy = vi.spyOn(app.prisma.workspaceInvite, 'update').mockResolvedValue(
+      buildWorkspaceInvite({
+        ...inviteRecord,
+        acceptedAt: new Date()
+      }) as unknown as Awaited<ReturnType<typeof app.prisma.workspaceInvite.update>>
+    );
+
+    vi.spyOn(app.prisma.user, 'findUniqueOrThrow').mockResolvedValue(existingUser);
+    const notificationCreateSpy = vi.spyOn(app.prisma.notification, 'create').mockResolvedValue({} as never);
+
+    vi.spyOn(app.prisma, '$transaction').mockImplementation(async (callback) => callback(app.prisma));
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/invite/accept',
+      payload: {
+        token: invite.token,
+        name: 'Existing User',
+        password: 'ComplexPass123!'
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(upsertSpy).toHaveBeenCalled();
+    expect(inviteUpdateSpy).toHaveBeenCalled();
+    expect(notificationCreateSpy).not.toHaveBeenCalled();
   });
 
   it('lists pending invites for authenticated user', async () => {

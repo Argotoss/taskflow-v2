@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { JSX, FormEvent } from 'react';
 import type {
   TaskSummary,
   TaskStatus,
   TaskPriority,
   CommentSummary,
-  AttachmentSummary
+  AttachmentSummary,
+  TaskChecklistItem
 } from '@taskflow/types';
 import { tasksApi } from '../taskApi.js';
 import { commentsApi } from '../../comments/commentsApi.js';
 import { attachmentsApi } from '../../attachments/attachmentsApi.js';
+import { checklistApi } from '../checklistApi.js';
 import Modal from '../../components/Modal.js';
 import { ApiError } from '../../api/httpClient.js';
 import type { UpdateTaskInput } from '../taskApi.js';
@@ -105,6 +107,36 @@ const TaskDetailModal = ({
   const [attachments, setAttachments] = useState<AttachmentSummary[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
   const [attachmentsError, setAttachmentsError] = useState('');
+  const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>([]);
+  const [checklistLoading, setChecklistLoading] = useState(false);
+  const [checklistError, setChecklistError] = useState('');
+  const [newChecklistLabel, setNewChecklistLabel] = useState('');
+  const [checklistSubmitting, setChecklistSubmitting] = useState(false);
+
+  const applyChecklistState = useCallback(
+    (items: TaskChecklistItem[], notify: boolean) => {
+      const ordered = [...items].sort((a, b) => a.position - b.position);
+      setChecklistItems(ordered);
+      const completed = ordered.filter((item) => item.completedAt).length;
+      const total = ordered.length;
+      setInitialTask((current) => {
+        const base = current ?? task ?? null;
+        if (!base) {
+          return current;
+        }
+        const updatedSummary: TaskSummary = {
+          ...base,
+          checklistCompletedCount: completed,
+          checklistTotalCount: total
+        };
+        if (notify) {
+          onTaskUpdated(updatedSummary);
+        }
+        return updatedSummary;
+      });
+    },
+    [onTaskUpdated, task]
+  );
 
   useEffect(() => {
     if (!open || !task) {
@@ -121,6 +153,11 @@ const TaskDetailModal = ({
       setAttachments([]);
       setAttachmentsError('');
       setNewComment('');
+      setChecklistItems([]);
+      setChecklistError('');
+      setChecklistLoading(false);
+      setNewChecklistLabel('');
+      setChecklistSubmitting(false);
       return;
     }
 
@@ -138,6 +175,8 @@ const TaskDetailModal = ({
       setAttachments([]);
       setCommentsError('Sign in to view comments');
       setAttachmentsError('Sign in to view attachments');
+      setChecklistItems([]);
+      setChecklistError('Sign in to view checklist');
       return;
     }
 
@@ -185,11 +224,33 @@ const TaskDetailModal = ({
 
     void loadComments();
     void loadAttachments();
+    const loadChecklist = async (): Promise<void> => {
+      try {
+        setChecklistLoading(true);
+        setChecklistError('');
+        const data = await checklistApi.list(accessToken, task.id);
+        if (!cancelled) {
+          applyChecklistState(data, false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message = error instanceof ApiError ? error.message : 'Unable to load checklist';
+          setChecklistError(message);
+          setChecklistItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setChecklistLoading(false);
+        }
+      }
+    };
+
+    void loadChecklist();
 
     return () => {
       cancelled = true;
     };
-  }, [open, task, accessToken]);
+  }, [accessToken, applyChecklistState, open, task]);
 
   const handleSave = async (): Promise<void> => {
     if (!task || !initialTask || !accessToken) {
@@ -245,6 +306,63 @@ const TaskDetailModal = ({
       setSaveError(error instanceof ApiError ? error.message : 'Unable to update task');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChecklistCreate = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+    event.preventDefault();
+    if (!task || !accessToken) {
+      return;
+    }
+    const trimmed = newChecklistLabel.trim();
+    if (trimmed.length === 0) {
+      setChecklistError('Checklist item description is required');
+      return;
+    }
+    setChecklistSubmitting(true);
+    setChecklistError('');
+    try {
+      const created = await checklistApi.create(accessToken, task.id, trimmed);
+      const nextItems = [...checklistItems, created].sort((a, b) => a.position - b.position);
+      applyChecklistState(nextItems, true);
+      setNewChecklistLabel('');
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Unable to add checklist item';
+      setChecklistError(message);
+    } finally {
+      setChecklistSubmitting(false);
+    }
+  };
+
+  const handleChecklistToggle = async (item: TaskChecklistItem): Promise<void> => {
+    if (!task || !accessToken) {
+      return;
+    }
+    setChecklistError('');
+    try {
+      const updated = await checklistApi.update(accessToken, task.id, item.id, {
+        completed: !item.completedAt
+      });
+      const nextItems = checklistItems.map((entry) => (entry.id === item.id ? updated : entry)).sort((a, b) => a.position - b.position);
+      applyChecklistState(nextItems, true);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Unable to update checklist item';
+      setChecklistError(message);
+    }
+  };
+
+  const handleChecklistDelete = async (itemId: string): Promise<void> => {
+    if (!task || !accessToken) {
+      return;
+    }
+    setChecklistError('');
+    try {
+      await checklistApi.remove(accessToken, task.id, itemId);
+      const nextItems = checklistItems.filter((entry) => entry.id !== itemId);
+      applyChecklistState(nextItems, true);
+    } catch (error) {
+      const message = error instanceof ApiError ? error.message : 'Unable to delete checklist item';
+      setChecklistError(message);
     }
   };
 
@@ -386,6 +504,76 @@ const TaskDetailModal = ({
               </label>
             </div>
           </form>
+
+          <section className="task-detail__section">
+            <div className="task-detail__section-header">
+              <h3>Checklist</h3>
+              {checklistLoading ? (
+                <span className="task-detail__meta-value">Loading…</span>
+              ) : detailTask ? (
+                <span className="task-detail__meta-value">
+                  {detailTask.checklistCompletedCount}/{detailTask.checklistTotalCount} completed
+                </span>
+              ) : null}
+            </div>
+            {checklistError && <div className="task-detail__error">{checklistError}</div>}
+            {checklistItems.length === 0 && !checklistLoading && !checklistError && (
+              <p className="task-detail__empty">No checklist items yet.</p>
+            )}
+            {checklistItems.length > 0 && (
+              <ul className="task-checklist">
+                {checklistItems.map((item) => (
+                  <li
+                    key={item.id}
+                    className={`task-checklist__item${item.completedAt ? ' task-checklist__item--completed' : ''}`}
+                  >
+                    <label className="task-checklist__toggle">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(item.completedAt)}
+                        onChange={() => {
+                          if (canEdit) {
+                            void handleChecklistToggle(item);
+                          }
+                        }}
+                        disabled={!canEdit}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className="task-checklist__delete"
+                        onClick={() => {
+                          void handleChecklistDelete(item.id);
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canEdit && (
+              <form className="task-checklist__form" onSubmit={handleChecklistCreate}>
+                <input
+                  type="text"
+                  value={newChecklistLabel}
+                  onChange={(event) => setNewChecklistLabel(event.target.value)}
+                  placeholder="Add checklist item"
+                  disabled={checklistSubmitting}
+                />
+                <button
+                  type="submit"
+                  className="workspace-button"
+                  disabled={checklistSubmitting || newChecklistLabel.trim().length === 0}
+                >
+                  {checklistSubmitting ? 'Adding…' : 'Add'}
+                </button>
+              </form>
+            )}
+          </section>
 
           <section className="task-detail__section">
             <div className="task-detail__section-header">

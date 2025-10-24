@@ -8,3 +8,4 @@ export * from './attachment.js';
 export * from './notification.js';
 export * from './auth.js';
 export * from './activity.js';
+export * from './checklist.js';
