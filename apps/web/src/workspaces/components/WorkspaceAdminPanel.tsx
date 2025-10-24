@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { JSX, FormEvent } from 'react';
 import type { MembershipSummary, WorkspaceSummary, WorkspaceInviteSummary, ProjectSummary } from '@taskflow/types';
 import { membershipRoleSchema } from '@taskflow/types';
 import { workspaceApi } from '../workspaceApi.js';
 import { projectApi } from '../../projects/projectApi.js';
 import { ApiError } from '../../api/httpClient.js';
+import Select from '../../components/Select.js';
 
 type MembershipRole = (typeof membershipRoleSchema)['options'][number];
 
@@ -58,6 +59,25 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   const [workspaceUpdating, setWorkspaceUpdating] = useState(false);
   const [workspaceUpdateError, setWorkspaceUpdateError] = useState('');
   const [workspaceUpdateStatus, setWorkspaceUpdateStatus] = useState('');
+  const selectIdPrefix = useId();
+  const roleOptions = useMemo(
+    () => membershipRoleSchema.options.map((role) => ({ value: role, label: roleLabels[role] })),
+    []
+  );
+  const workspaceSelectOptions = useMemo(
+    () => workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name })),
+    [workspaces]
+  );
+  const transferOwnerOptions = useMemo(
+    () =>
+      members
+        .filter((member) => member.userId !== currentUserId)
+        .map((member) => ({
+          value: member.id,
+          label: `${member.user.name ?? member.user.email} (${roleLabels[member.role]})`
+        })),
+    [currentUserId, members]
+  );
   const [transferMembershipId, setTransferMembershipId] = useState('');
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [transferError, setTransferError] = useState('');
@@ -571,17 +591,15 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
         <h3>Workspace access</h3>
         {workspaces.length > 0 && (
           <div className="workspace-card__actions">
-            <select
+            <Select
+              id={`${selectIdPrefix}-workspace-picker`}
               className="workspace-card__selector"
               value={selectedWorkspaceId}
-              onChange={(event) => setSelectedWorkspaceId(event.target.value)}
-            >
-              {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => setSelectedWorkspaceId(next)}
+              options={workspaceSelectOptions}
+              placeholder="Select workspace"
+              ariaLabel="Select workspace"
+            />
             <button
               type="button"
               className="workspace-button"
@@ -641,23 +659,16 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 <p className="workspace-card__notice">Invite another member before transferring ownership.</p>
               ) : (
                 <form className="workspace-invite" onSubmit={handleTransferOwnership}>
-                  <select
+                  <Select
+                    id={`${selectIdPrefix}-transfer-owner`}
                     value={transferMembershipId}
-                    onChange={(event) => setTransferMembershipId(event.target.value)}
+                    onChange={(next) => setTransferMembershipId(next)}
+                    options={transferOwnerOptions}
                     disabled={transferSubmitting}
-                    required
-                  >
-                    <option value="" disabled>
-                      Select new owner
-                    </option>
-                    {members
-                      .filter((member) => member.userId !== currentUserId)
-                      .map((member) => (
-                        <option key={member.id} value={member.id}>
-                          {member.user.name ?? member.user.email} ({roleLabels[member.role]})
-                        </option>
-                      ))}
-                  </select>
+                    placeholder="Select new owner"
+                    ariaLabel="Transfer workspace to"
+                    fullWidth
+                  />
                   <button type="submit" className="workspace-button" disabled={transferSubmitting || !transferMembershipId}>
                     {transferSubmitting ? 'Transferring…' : 'Transfer ownership'}
                   </button>
@@ -738,17 +749,15 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                         <span className="workspace-members__email">{member.user.email}</span>
                       </div>
                       <div className="workspace-members__actions">
-                        <select
+                        <Select
+                          id={`${selectIdPrefix}-member-role-${member.id}`}
                           value={member.role}
-                          onChange={(event) => handleRoleChange(member.id, event.target.value as MembershipRole)}
+                          onChange={(next) => handleRoleChange(member.id, next as MembershipRole)}
+                          options={roleOptions}
                           disabled={disableRoleChange}
-                        >
-                          {membershipRoleSchema.options.map((role) => (
-                            <option key={role} value={role}>
-                              {roleLabels[role]}
-                            </option>
-                          ))}
-                        </select>
+                          size="compact"
+                          ariaLabel={`Change role for ${member.user.name ?? member.user.email}`}
+                        />
                         <button
                           type="button"
                           className="workspace-button workspace-button--ghost"
@@ -783,13 +792,16 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 disabled={!canInvite || inviteSubmitting}
                 required
               />
-              <select value={inviteRole} onChange={(event) => setInviteRole(event.target.value as MembershipRole)} disabled={!canInvite || inviteSubmitting}>
-                {membershipRoleSchema.options.map((role) => (
-                  <option key={role} value={role}>
-                    {roleLabels[role]}
-                  </option>
-                ))}
-              </select>
+              <Select
+                id={`${selectIdPrefix}-invite-role`}
+                value={inviteRole}
+                onChange={(next) => setInviteRole(next as MembershipRole)}
+                options={roleOptions}
+                disabled={!canInvite || inviteSubmitting}
+                placeholder="Select role"
+                ariaLabel="Choose invite role"
+                fullWidth
+              />
               <button type="submit" className="workspace-button" disabled={!canInvite || inviteSubmitting}>
                 {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
               </button>

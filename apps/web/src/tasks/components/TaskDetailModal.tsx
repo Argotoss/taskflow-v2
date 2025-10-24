@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { JSX, FormEvent } from 'react';
 import type {
   TaskSummary,
@@ -15,6 +15,7 @@ import { checklistApi } from '../checklistApi.js';
 import Modal from '../../components/Modal.js';
 import { ApiError } from '../../api/httpClient.js';
 import type { UpdateTaskInput } from '../taskApi.js';
+import Select from '../../components/Select.js';
 
 const priorityLabels: Record<TaskPriority, string> = {
   LOW: 'Low',
@@ -98,6 +99,7 @@ const TaskDetailModal = ({
   const [saveError, setSaveError] = useState('');
   const [saveStatus, setSaveStatus] = useState('');
   const [saving, setSaving] = useState(false);
+  const selectIdPrefix = useId();
   const [deleting, setDeleting] = useState(false);
   const [comments, setComments] = useState<CommentSummary[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -112,6 +114,14 @@ const TaskDetailModal = ({
   const [checklistError, setChecklistError] = useState('');
   const [newChecklistLabel, setNewChecklistLabel] = useState('');
   const [checklistSubmitting, setChecklistSubmitting] = useState(false);
+  const statusSelectOptions = useMemo(
+    () => statusOptions.map((option) => ({ value: option.status, label: option.title })),
+    [statusOptions]
+  );
+  const prioritySelectOptions = useMemo(
+    () => priorityOptions.map((option) => ({ value: option, label: priorityLabels[option] })),
+    []
+  );
 
   const applyChecklistState = useCallback(
     (items: TaskChecklistItem[], notify: boolean) => {
@@ -473,25 +483,27 @@ const TaskDetailModal = ({
               />
             </label>
             <div className="task-detail__field-grid">
-              <label className="task-detail__field">
+              <label className="task-detail__field" htmlFor={`${selectIdPrefix}-status`}>
                 <span>Status</span>
-                <select value={status} onChange={(event) => setStatus(event.target.value as TaskStatus)} disabled={!canEdit || saving}>
-                  {statusOptions.map((option) => (
-                    <option key={option.status} value={option.status}>
-                      {option.title}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  id={`${selectIdPrefix}-status`}
+                  value={status}
+                  onChange={(next) => setStatus(next as TaskStatus)}
+                  options={statusSelectOptions}
+                  disabled={!canEdit || saving}
+                  fullWidth
+                />
               </label>
-              <label className="task-detail__field">
+              <label className="task-detail__field" htmlFor={`${selectIdPrefix}-priority`}>
                 <span>Priority</span>
-                <select value={priority} onChange={(event) => setPriority(event.target.value as TaskPriority)} disabled={!canEdit || saving}>
-                  {priorityOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {priorityLabels[option]}
-                    </option>
-                  ))}
-                </select>
+                <Select
+                  id={`${selectIdPrefix}-priority`}
+                  value={priority}
+                  onChange={(next) => setPriority(next as TaskPriority)}
+                  options={prioritySelectOptions}
+                  disabled={!canEdit || saving}
+                  fullWidth
+                />
               </label>
               <label className="task-detail__field">
                 <span>Due date</span>

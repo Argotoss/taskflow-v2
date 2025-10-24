@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChangeEvent, FormEvent, JSX } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { FormEvent, JSX } from 'react';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { useAuth } from '../auth/useAuth.js';
 import Modal from './Modal.js';
@@ -11,6 +11,7 @@ import { tasksApi } from '../tasks/taskApi.js';
 import { ApiError } from '../api/httpClient.js';
 import TaskDetailModal from '../tasks/components/TaskDetailModal.js';
 import InboxPanel from '../notifications/components/InboxPanel.js';
+import Select from './Select.js';
 
 type TaskStatus = TaskSummary['status'];
 
@@ -157,6 +158,7 @@ const BoardLayout = (): JSX.Element => {
   const [inboxSummary, setInboxSummary] = useState({ unreadNotifications: 0, pendingInvites: 0 });
   const workspaceEnsuredRef = useRef(false);
   const projectEnsuredRef = useRef<Record<string, boolean>>({});
+  const selectIdPrefix = useId();
 
   const initials = useMemo(() => getInitials(auth.user?.name, auth.user?.email), [auth.user?.email, auth.user?.name]);
   const userName = auth.user?.name ?? auth.user?.email ?? 'Taskflow user';
@@ -784,6 +786,30 @@ const BoardLayout = (): JSX.Element => {
 
   const workspaceValue = selectedWorkspaceId ?? '';
   const projectValue = selectedProjectId ?? '';
+  const assigneeOptions = useMemo(
+    () => [
+      { value: 'ALL', label: 'Everyone' },
+      { value: 'UNASSIGNED', label: 'Unassigned' },
+      ...workspaceMembers.map((member) => ({
+        value: member.userId,
+        label: member.user.name ?? member.user.email
+      }))
+    ],
+    [workspaceMembers]
+  );
+  const dueFilterOptions = useMemo(
+    () => [
+      { value: 'ALL' as DueFilter, label: 'Any' },
+      { value: 'OVERDUE' as DueFilter, label: 'Overdue' },
+      { value: 'DUE_SOON' as DueFilter, label: 'Due in 7 days' },
+      { value: 'NO_DUE_DATE' as DueFilter, label: 'No due date' }
+    ],
+    []
+  );
+  const taskStatusSelectOptions = useMemo(
+    () => columnDefinitions.map((column) => ({ value: column.status, label: column.title })),
+    []
+  );
   const canMutateBoard =
     Boolean(selectedProjectId && accessToken) && !syncing && !loadingTasks && !loadingProjects && !loadingWorkspaces;
 
@@ -842,41 +868,27 @@ const BoardLayout = (): JSX.Element => {
               </div>
             ) : null}
             <div className="board-header__selectors">
-              <label>
+              <label htmlFor={`${selectIdPrefix}-workspace`}>
                 <span>Workspace</span>
-                <select
+                <Select
+                  id={`${selectIdPrefix}-workspace`}
                   value={workspaceValue}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedWorkspaceId(event.target.value || null)}
+                  onChange={(next) => setSelectedWorkspaceId(next.length === 0 ? null : next)}
+                  options={workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))}
                   disabled={loadingWorkspaces || syncing || workspaces.length === 0}
-                >
-                  {workspaces.length === 0 ? (
-                    <option value="">No workspaces</option>
-                  ) : (
-                    workspaces.map((workspace) => (
-                      <option key={workspace.id} value={workspace.id}>
-                        {workspace.name}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  placeholder={workspaces.length === 0 ? 'No workspaces' : 'Select workspace'}
+                />
               </label>
-              <label>
+              <label htmlFor={`${selectIdPrefix}-project`}>
                 <span>Project</span>
-                <select
+                <Select
+                  id={`${selectIdPrefix}-project`}
                   value={projectValue}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) => setSelectedProjectId(event.target.value || null)}
+                  onChange={(next) => setSelectedProjectId(next.length === 0 ? null : next)}
+                  options={projects.map((project) => ({ value: project.id, label: project.name }))}
                   disabled={loadingProjects || syncing || projects.length === 0}
-                >
-                  {projects.length === 0 ? (
-                    <option value="">No projects</option>
-                  ) : (
-                    projects.map((project) => (
-                      <option key={project.id} value={project.id}>
-                        {project.name}
-                      </option>
-                    ))
-                  )}
-                </select>
+                  placeholder={projects.length === 0 ? 'No projects' : 'Select project'}
+                />
               </label>
             </div>
             <button
@@ -915,20 +927,15 @@ const BoardLayout = (): JSX.Element => {
               </label>
             </div>
             <div className="board-filters__group">
-              <label>
+              <label htmlFor={`${selectIdPrefix}-assignee`}>
                 <span>Assignee</span>
-                <select
+                <Select
+                  id={`${selectIdPrefix}-assignee`}
                   value={assigneeFilter}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>) => setAssigneeFilter(event.target.value as typeof assigneeFilter)}
-                >
-                  <option value="ALL">Everyone</option>
-                  <option value="UNASSIGNED">Unassigned</option>
-                  {workspaceMembers.map((member) => (
-                    <option key={member.id} value={member.userId}>
-                      {member.user.name ?? member.user.email}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(next) => setAssigneeFilter(next as typeof assigneeFilter)}
+                  options={assigneeOptions}
+                  placeholder="Filter by assignee"
+                />
               </label>
             </div>
             <div className="board-filters__group board-filters__group--priority">
@@ -960,14 +967,15 @@ const BoardLayout = (): JSX.Element => {
               </div>
             </div>
             <div className="board-filters__group">
-              <label>
+              <label htmlFor={`${selectIdPrefix}-due`}>
                 <span>Due date</span>
-                <select value={dueFilter} onChange={(event: ChangeEvent<HTMLSelectElement>) => setDueFilter(event.target.value as DueFilter)}>
-                  <option value="ALL">Any</option>
-                  <option value="OVERDUE">Overdue</option>
-                  <option value="DUE_SOON">Due in 7 days</option>
-                  <option value="NO_DUE_DATE">No due date</option>
-                </select>
+                <Select
+                  id={`${selectIdPrefix}-due`}
+                  value={dueFilter}
+                  onChange={(next) => setDueFilter(next as DueFilter)}
+                  options={dueFilterOptions}
+                  placeholder="Any due date"
+                />
               </label>
             </div>
             {filtersActive ? (
@@ -1091,20 +1099,16 @@ const BoardLayout = (): JSX.Element => {
                                     }}
                                   >
                                     <label htmlFor={`status-${task.id}`}>Status</label>
-                                    <select
+                                    <Select
                                       id={`status-${task.id}`}
                                       value={task.status}
-                                      onChange={(event) =>
-                                        handleTaskStatusChange(task.id, column.status, event.target.value as TaskStatus)
+                                      onChange={(next) =>
+                                        handleTaskStatusChange(task.id, column.status, next as TaskStatus)
                                       }
+                                      options={taskStatusSelectOptions}
                                       disabled={!canMutateBoard}
-                                    >
-                                      {columnDefinitions.map((option) => (
-                                        <option key={option.status} value={option.status}>
-                                          {option.title}
-                                        </option>
-                                      ))}
-                                    </select>
+                                      size="compact"
+                                    />
                                     <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard}>
                                       Remove
                                     </button>
@@ -1196,15 +1200,16 @@ const BoardLayout = (): JSX.Element => {
               disabled={taskModalSubmitting}
             />
           </label>
-          <label className="task-form__field">
+          <label className="task-form__field" htmlFor={`${selectIdPrefix}-task-column`}>
             <span>Column</span>
-            <select value={taskColumn} onChange={(event) => setTaskColumn(event.target.value as TaskStatus)} disabled={taskModalSubmitting}>
-              {columnDefinitions.map((column) => (
-                <option key={column.status} value={column.status}>
-                  {column.title}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${selectIdPrefix}-task-column`}
+              value={taskColumn}
+              onChange={(next) => setTaskColumn(next as TaskStatus)}
+              options={taskStatusSelectOptions}
+              disabled={taskModalSubmitting}
+              fullWidth
+            />
           </label>
         </form>
       </Modal>
