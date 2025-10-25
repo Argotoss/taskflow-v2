@@ -734,33 +734,6 @@ const BoardLayout = (): JSX.Element => {
     }
   };
 
-  const handleTaskStatusChange = (taskId: string, currentStatus: TaskStatus, nextStatus: TaskStatus): void => {
-    if (
-      currentStatus === nextStatus ||
-      !selectedProjectId ||
-      !accessToken ||
-      syncing ||
-      loadingTasks
-    ) {
-      return;
-    }
-
-    const previous = cloneBoard(boardTasks);
-    const next = cloneBoard(boardTasks);
-    const sourceTasks = next[currentStatus];
-    const index = sourceTasks.findIndex((task) => task.id === taskId);
-    if (index === -1) {
-      return;
-    }
-    const [task] = sourceTasks.splice(index, 1);
-    const updatedTask = { ...task, status: nextStatus };
-    next[nextStatus].push(updatedTask);
-    if (taskDetail?.id === taskId) {
-      setTaskDetail({ ...taskDetail, status: nextStatus });
-    }
-    void runBoardMutation(next, previous);
-  };
-
   const handleTaskRemove = async (taskId: string, status: TaskStatus): Promise<void> => {
     if (!selectedProjectId || !accessToken || syncing || loadingTasks) {
       return;
@@ -851,43 +824,6 @@ const BoardLayout = (): JSX.Element => {
 
   return (
     <div className="app-shell">
-      <aside className="app-shell__sidebar">
-        <div className="sidebar__brand">
-          <span className="sidebar__logo">TF</span>
-          <span className="sidebar__title">Taskflow</span>
-        </div>
-
-        <nav className="sidebar__nav">
-          <div className="sidebar__section">
-            <p className="sidebar__section-title">Workspace</p>
-            <button type="button" className="sidebar__link" onClick={() => setSettingsOpen(true)}>
-              Manage members
-            </button>
-            <button type="button" className="sidebar__link" onClick={() => openTaskModal('TODO')}>
-              Invite via link
-            </button>
-          </div>
-
-          <div className="sidebar__section">
-            <p className="sidebar__section-title">Projects</p>
-            <button type="button" className="sidebar__link" onClick={() => setSettingsOpen(true)}>
-              Project overview
-            </button>
-            <button type="button" className="sidebar__link" onClick={() => openTaskModal('TODO')}>
-              Create project
-            </button>
-          </div>
-        </nav>
-
-        <div className="sidebar__footer">
-          <span className="sidebar__footer-label">Signed in as</span>
-          <strong className="sidebar__footer-value">{userName}</strong>
-          <button type="button" className="sidebar__logout" onClick={() => auth.logout()}>
-            Sign out
-          </button>
-        </div>
-      </aside>
-
       <main className="app-shell__main">
         <header className="board-header">
           <div>
@@ -948,6 +884,54 @@ const BoardLayout = (): JSX.Element => {
             </button>
           </div>
         </header>
+
+        <div className="board-toolbar" role="toolbar" aria-label="Workspace quick actions">
+          <div className="board-toolbar__group">
+            <button
+              type="button"
+              className="board-button board-button--ghost"
+              onClick={() => setSettingsOpen(true)}
+              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+            >
+              Manage members
+            </button>
+            <button
+              type="button"
+              className="board-button board-button--ghost"
+              onClick={() => {
+                setSettingsOpen(true);
+                setInfoMessage('Share invites from Account & Workspace settings.');
+              }}
+              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+            >
+              Invite via link
+            </button>
+            <button
+              type="button"
+              className="board-button board-button--ghost"
+              onClick={() => setSettingsOpen(true)}
+              disabled={loadingProjects || visualSyncing || !activeProject}
+            >
+              Project overview
+            </button>
+            <button
+              type="button"
+              className="board-button board-button--ghost"
+              onClick={() => setSettingsOpen(true)}
+              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+            >
+              Create project
+            </button>
+          </div>
+          <div className="board-toolbar__group board-toolbar__group--actions">
+            <span className="board-toolbar__user" aria-live="polite">
+              Signed in as <strong>{userName}</strong>
+            </span>
+            <button type="button" className="board-button board-button--danger" onClick={() => auth.logout()}>
+              Sign out
+            </button>
+          </div>
+        </div>
 
         {activeProject ? (
           <section className="board-filters" aria-label="Task filters">
@@ -1134,18 +1118,20 @@ const BoardLayout = (): JSX.Element => {
                                       event.stopPropagation();
                                     }}
                                   >
-                                    <label htmlFor={`status-${task.id}`}>Status</label>
-                                    <Select
-                                      id={`status-${task.id}`}
-                                      value={task.status}
-                                      onChange={(next) =>
-                                        handleTaskStatusChange(task.id, column.status, next as TaskStatus)
-                                      }
-                                      options={taskStatusSelectOptions}
+                                    <button
+                                      type="button"
+                                      className="board-task__action board-task__action--edit"
+                                      onClick={() => openTaskDetail(task)}
+                                      disabled={visualSyncing}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="board-task__action board-task__action--remove"
+                                      onClick={() => handleTaskRemove(task.id, column.status)}
                                       disabled={!canMutateBoard || visualSyncing}
-                                      size="compact"
-                                    />
-                                    <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard || visualSyncing}>
+                                    >
                                       Remove
                                     </button>
                                   </div>
