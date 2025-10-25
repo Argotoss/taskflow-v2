@@ -163,7 +163,6 @@ const BoardLayout = (): JSX.Element => {
   const selectIdPrefix = useId();
 
   const initials = useMemo(() => getInitials(auth.user?.name, auth.user?.email), [auth.user?.email, auth.user?.name]);
-  const userName = auth.user?.name ?? auth.user?.email ?? 'Taskflow user';
   const activeWorkspace = useMemo(
     () => workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null,
     [selectedWorkspaceId, workspaces]
@@ -849,6 +848,7 @@ const BoardLayout = (): JSX.Element => {
                   options={workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))}
                   disabled={loadingWorkspaces || visualSyncing || workspaces.length === 0}
                   placeholder={workspaces.length === 0 ? 'No workspaces' : 'Select workspace'}
+                  fullWidth
                 />
               </label>
               <label htmlFor={`${selectIdPrefix}-project`}>
@@ -860,8 +860,46 @@ const BoardLayout = (): JSX.Element => {
                   options={projects.map((project) => ({ value: project.id, label: project.name }))}
                   disabled={loadingProjects || visualSyncing || projects.length === 0}
                   placeholder={projects.length === 0 ? 'No projects' : 'Select project'}
+                  fullWidth
                 />
               </label>
+            </div>
+            <div className="board-header__utility-actions">
+              <button
+                type="button"
+                className="board-button board-button--ghost"
+                onClick={() => setSettingsOpen(true)}
+                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+              >
+                Manage members
+              </button>
+              <button
+                type="button"
+                className="board-button board-button--ghost"
+                onClick={() => {
+                  setSettingsOpen(true);
+                  setInfoMessage('Share invites from Account & Workspace settings.');
+                }}
+                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+              >
+                Invite via link
+              </button>
+              <button
+                type="button"
+                className="board-button board-button--ghost"
+                onClick={() => setSettingsOpen(true)}
+                disabled={loadingProjects || visualSyncing || !activeProject}
+              >
+                Project overview
+              </button>
+              <button
+                type="button"
+                className="board-button board-button--ghost"
+                onClick={() => setSettingsOpen(true)}
+                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
+              >
+                Create project
+              </button>
             </div>
             <button
               type="button"
@@ -885,134 +923,94 @@ const BoardLayout = (): JSX.Element => {
           </div>
         </header>
 
-        <div className="board-toolbar" role="toolbar" aria-label="Workspace quick actions">
-          <div className="board-toolbar__group">
-            <button
-              type="button"
-              className="board-button board-button--ghost"
-              onClick={() => setSettingsOpen(true)}
-              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-            >
-              Manage members
-            </button>
-            <button
-              type="button"
-              className="board-button board-button--ghost"
-              onClick={() => {
-                setSettingsOpen(true);
-                setInfoMessage('Share invites from Account & Workspace settings.');
-              }}
-              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-            >
-              Invite via link
-            </button>
-            <button
-              type="button"
-              className="board-button board-button--ghost"
-              onClick={() => setSettingsOpen(true)}
-              disabled={loadingProjects || visualSyncing || !activeProject}
-            >
-              Project overview
-            </button>
-            <button
-              type="button"
-              className="board-button board-button--ghost"
-              onClick={() => setSettingsOpen(true)}
-              disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-            >
-              Create project
-            </button>
-          </div>
-          <div className="board-toolbar__group board-toolbar__group--actions">
-            <span className="board-toolbar__user" aria-live="polite">
-              Signed in as <strong>{userName}</strong>
-            </span>
-            <button type="button" className="board-button board-button--danger" onClick={() => auth.logout()}>
-              Sign out
-            </button>
-          </div>
-        </div>
-
-        {activeProject ? (
-          <section className="board-filters" aria-label="Task filters">
-            <div className="board-filters__group board-filters__group--search">
-              <label>
-                <span>Search</span>
-                <input
-                  type="search"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by title or description"
-                />
-              </label>
-            </div>
-            <div className="board-filters__group">
-              <label htmlFor={`${selectIdPrefix}-assignee`}>
-                <span>Assignee</span>
-                <Select
-                  id={`${selectIdPrefix}-assignee`}
-                  value={assigneeFilter}
-                  onChange={(next) => setAssigneeFilter(next as typeof assigneeFilter)}
-                  options={assigneeOptions}
-                  placeholder="Filter by assignee"
-                />
-              </label>
-            </div>
-            <div className="board-filters__group board-filters__group--priority">
-              <span>Priority</span>
-              <div className="board-filters__chips">
-                {priorityOrder.map((priority) => {
-                  const selected = priorityFilter.includes(priority);
-                  return (
-                    <button
-                      key={priority}
-                      type="button"
-                      className={`board-filters__chip${selected ? ' board-filters__chip--active' : ''}`}
-                      onClick={() =>
-                        setPriorityFilter((current) => {
-                          if (selected) {
-                            const next = current.filter((entry) => entry !== priority);
-                            return next.length === 0 ? priorityOrder : next;
-                          }
-                          const nextSet = new Set([...current, priority]);
-                          return priorityOrder.filter((value) => nextSet.has(value));
-                        })
-                      }
-                      aria-pressed={selected}
-                    >
-                      {priorityLabels[priority]}
-                    </button>
-                  );
-                })}
+        <section className="board-filters" aria-label="Task filters">
+          {activeProject ? (
+            <div className="board-filters__grid">
+              <div className="board-filters__group board-filters__group--search">
+                <label>
+                  <span>Search</span>
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search by title or description"
+                  />
+                </label>
               </div>
+              <div className="board-filters__group">
+                <label htmlFor={`${selectIdPrefix}-assignee`}>
+                  <span>Assignee</span>
+                  <Select
+                    id={`${selectIdPrefix}-assignee`}
+                    value={assigneeFilter}
+                    onChange={(next) => setAssigneeFilter(next as typeof assigneeFilter)}
+                    options={assigneeOptions}
+                    placeholder="Filter by assignee"
+                    fullWidth
+                  />
+                </label>
+              </div>
+              <div className="board-filters__group board-filters__group--priority">
+                <span>Priority</span>
+                <div className="board-filters__chips">
+                  {priorityOrder.map((priority) => {
+                    const selected = priorityFilter.includes(priority);
+                    return (
+                      <button
+                        key={priority}
+                        type="button"
+                        className={`board-filters__chip${selected ? ' board-filters__chip--active' : ''}`}
+                        onClick={() =>
+                          setPriorityFilter((current) => {
+                            if (selected) {
+                              const next = current.filter((entry) => entry !== priority);
+                              return next.length === 0 ? priorityOrder : next;
+                            }
+                            const nextSet = new Set([...current, priority]);
+                            return priorityOrder.filter((value) => nextSet.has(value));
+                          })
+                        }
+                        aria-pressed={selected}
+                      >
+                        {priorityLabels[priority]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="board-filters__group">
+                <label htmlFor={`${selectIdPrefix}-due`}>
+                  <span>Due date</span>
+                  <Select
+                    id={`${selectIdPrefix}-due`}
+                    value={dueFilter}
+                    onChange={(next) => setDueFilter(next as DueFilter)}
+                    options={dueFilterOptions}
+                    placeholder="Any due date"
+                    fullWidth
+                  />
+                </label>
+              </div>
+              {filtersActive ? (
+                <div className="board-filters__group board-filters__group--clear">
+                  <button
+                    type="button"
+                    className="board-filters__clear"
+                    onClick={() => {
+                      setAssigneeFilter('ALL');
+                      setPriorityFilter(priorityOrder);
+                      setDueFilter('ALL');
+                    }}
+                  >
+                    Clear filters
+                  </button>
+                </div>
+              ) : null}
             </div>
-            <div className="board-filters__group">
-              <label htmlFor={`${selectIdPrefix}-due`}>
-                <span>Due date</span>
-                <Select
-                  id={`${selectIdPrefix}-due`}
-                  value={dueFilter}
-                  onChange={(next) => setDueFilter(next as DueFilter)}
-                  options={dueFilterOptions}
-                  placeholder="Any due date"
-                />
-              </label>
-            </div>
-            {filtersActive ? (
-              <button
-                type="button"
-                className="board-filters__clear"
-                onClick={() => {
-                  setAssigneeFilter('ALL');
-                  setPriorityFilter(priorityOrder);
-                  setDueFilter('ALL');
-                }}
-              >
-                Clear filters
-              </button>
-            ) : null}
-          </section>
-        ) : null}
+          ) : (
+            <p className="board-filters__notice">Select a project to enable task filters.</p>
+          )}
+        </section>
 
         {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
         {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}

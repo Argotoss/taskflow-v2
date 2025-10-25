@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import type { KeyboardEvent, JSX } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent, JSX } from 'react';
 
 export interface SelectOption {
   value: string;
@@ -15,7 +15,7 @@ export interface SelectProps {
   disabled?: boolean;
   placeholder?: string;
   fullWidth?: boolean;
-  size?: "default" | "compact";
+  size?: 'default' | 'compact';
   className?: string;
   name?: string;
   ariaLabel?: string;
@@ -27,11 +27,15 @@ const getNextEnabledIndex = (
   start: number,
   delta: 1 | -1
 ): number => {
-  if (options.length === 0) return -1;
+  if (options.length === 0) {
+    return -1;
+  }
   let index = start;
   for (let attempts = 0; attempts < options.length; attempts += 1) {
     index = (index + delta + options.length) % options.length;
-    if (!options[index]?.disabled) return index;
+    if (!options[index]?.disabled) {
+      return index;
+    }
   }
   return -1;
 };
@@ -42,13 +46,13 @@ const Select = ({
   options,
   onChange,
   disabled = false,
-  placeholder = "Select…",
+  placeholder = 'Select…',
   fullWidth = false,
-  size = "default",
-  className = "",
+  size = 'default',
+  className = '',
   name,
   ariaLabel,
-  ariaLabelledBy,
+  ariaLabelledBy
 }: SelectProps): JSX.Element => {
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
@@ -68,16 +72,18 @@ const Select = ({
 
   useEffect(() => {
     const handler = (event: MouseEvent | TouchEvent): void => {
-      if (!containerRef.current || containerRef.current.contains(event.target as Node)) return;
+      if (!containerRef.current || containerRef.current.contains(event.target as Node)) {
+        return;
+      }
       setOpen(false);
     };
     if (open) {
-      document.addEventListener("mousedown", handler);
-      document.addEventListener("touchstart", handler);
+      document.addEventListener('mousedown', handler);
+      document.addEventListener('touchstart', handler);
     }
     return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("touchstart", handler);
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('touchstart', handler);
     };
   }, [open]);
 
@@ -98,7 +104,9 @@ const Select = ({
     const menu = menuRef.current;
     if (!menu || activeIndex < 0) return;
     const option = menu.querySelector<HTMLLIElement>(`[data-index="${activeIndex}"]`);
-    if (!option) return;
+    if (!option) {
+      return;
+    }
     const optionTop = option.offsetTop;
     const optionBottom = optionTop + option.offsetHeight;
     if (optionTop < menu.scrollTop) {
@@ -119,23 +127,25 @@ const Select = ({
 
   const handleButtonKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (disabled) return;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
       if (!open) {
         setOpen(true);
         return;
       }
       const next = getNextEnabledIndex(options, activeIndex, delta);
-      if (next >= 0) setActiveIndex(next);
-    } else if (event.key === "Enter" || event.key === " ") {
+      if (next >= 0) {
+        setActiveIndex(next);
+      }
+    } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (!open) {
         setOpen(true);
       } else if (activeIndex >= 0 && !options[activeIndex]?.disabled) {
         commitValue(options[activeIndex].value);
       }
-    } else if (event.key === "Escape") {
+    } else if (event.key === 'Escape') {
       if (open) {
         event.preventDefault();
         setOpen(false);
@@ -144,43 +154,45 @@ const Select = ({
   };
 
   const handleMenuKeyDown = (event: KeyboardEvent<HTMLUListElement>): void => {
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
-      const delta = event.key === "ArrowDown" ? 1 : -1;
+      const delta = event.key === 'ArrowDown' ? 1 : -1;
       const next = getNextEnabledIndex(options, activeIndex, delta);
-      if (next >= 0) setActiveIndex(next);
-    } else if (event.key === "Enter" || event.key === " ") {
+      if (next >= 0) {
+        setActiveIndex(next);
+      }
+    } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       if (activeIndex >= 0 && !options[activeIndex]?.disabled) {
         commitValue(options[activeIndex].value);
       }
-    } else if (event.key === "Escape") {
+    } else if (event.key === 'Escape') {
       event.preventDefault();
       setOpen(false);
-    } else if (event.key === "Tab") {
+    } else if (event.key === 'Tab') {
       setOpen(false);
     }
   };
 
   const containerClasses = [
-    "select",
-    fullWidth ? "select--full" : "",
-    size === "compact" ? "select--compact" : "",
-    disabled ? "select--disabled" : "",
-    open ? "select--open" : "",
-    className,
+    'select',
+    fullWidth ? 'select--full' : '',
+    size === 'compact' ? 'select--compact' : '',
+    disabled ? 'select--disabled' : '',
+    open ? 'select--open' : '',
+    className
   ]
     .filter(Boolean)
-    .join(" ");
+    .join(' ');
 
   const displayValue = selectedOption?.label ?? placeholder;
   const valueClass = selectedOption
-    ? "select__value"
-    : "select__value select__value--placeholder";
+    ? 'select__value'
+    : 'select__value select__value--placeholder';
 
   return (
     <div ref={containerRef} className={containerClasses}>
-      {typeof name === "string" && name.trim().length > 0 ? (
+      {typeof name === 'string' && name.trim().length > 0 ? (
         <input type="hidden" name={name} value={value} disabled={disabled} />
       ) : null}
 
@@ -219,13 +231,13 @@ const Select = ({
             const isSelected = option.value === selectedOption?.value;
             const isActive = index === activeIndex;
             const optionClasses = [
-              "select__option",
-              isSelected ? "select__option--selected" : "",
-              isActive ? "select__option--active" : "",
-              option.disabled ? "select__option--disabled" : "",
+              'select__option',
+              isSelected ? 'select__option--selected' : '',
+              isActive ? 'select__option--active' : '',
+              option.disabled ? 'select__option--disabled' : ''
             ]
               .filter(Boolean)
-              .join(" ");
+              .join(' ');
 
             return (
               <li
@@ -237,11 +249,15 @@ const Select = ({
                 aria-disabled={option.disabled}
                 className={optionClasses}
                 onMouseEnter={() => {
-                  if (!option.disabled) setActiveIndex(index);
+                  if (!option.disabled) {
+                    setActiveIndex(index);
+                  }
                 }}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  if (!option.disabled) commitValue(option.value);
+                  if (!option.disabled) {
+                    commitValue(option.value);
+                  }
                 }}
               >
                 {option.label}
