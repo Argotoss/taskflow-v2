@@ -333,13 +333,19 @@ h1 {
 .board-filters__group {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
-  color: rgba(203, 213, 225, 0.85);
-  font-size: 0.85rem;
+  gap: 0.35rem;
+}
+
+.board-field-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: rgba(148, 163, 184, 0.75);
 }
 
 .board-filters__group .select {
-  min-width: 160px;
+  min-width: 180px;
   width: 100%;
 }
 
@@ -393,11 +399,14 @@ h1 {
   background: rgba(15, 23, 42, 0.45);
   color: rgba(226, 232, 240, 0.75);
   border-radius: 999px;
-  padding: 0.3rem 0.8rem;
+  padding: 0 0.9rem;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
 }
 
 .board-filters__chip:hover {

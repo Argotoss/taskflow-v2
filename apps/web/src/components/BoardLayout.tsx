@@ -927,9 +927,10 @@ const BoardLayout = (): JSX.Element => {
           {activeProject ? (
             <div className="board-filters__grid">
               <div className="board-filters__group board-filters__group--search">
-                <label>
+                <label className="board-field-label" htmlFor={`${selectIdPrefix}-search`}>
                   <span>Search</span>
                   <input
+                    id={`${selectIdPrefix}-search`}
                     type="search"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
@@ -938,7 +939,7 @@ const BoardLayout = (): JSX.Element => {
                 </label>
               </div>
               <div className="board-filters__group">
-                <label htmlFor={`${selectIdPrefix}-assignee`}>
+                <label className="board-field-label" htmlFor={`${selectIdPrefix}-assignee`}>
                   <span>Assignee</span>
                   <Select
                     id={`${selectIdPrefix}-assignee`}
@@ -950,36 +951,8 @@ const BoardLayout = (): JSX.Element => {
                   />
                 </label>
               </div>
-              <div className="board-filters__group board-filters__group--priority">
-                <span>Priority</span>
-                <div className="board-filters__chips">
-                  {priorityOrder.map((priority) => {
-                    const selected = priorityFilter.includes(priority);
-                    return (
-                      <button
-                        key={priority}
-                        type="button"
-                        className={`board-filters__chip${selected ? ' board-filters__chip--active' : ''}`}
-                        onClick={() =>
-                          setPriorityFilter((current) => {
-                            if (selected) {
-                              const next = current.filter((entry) => entry !== priority);
-                              return next.length === 0 ? priorityOrder : next;
-                            }
-                            const nextSet = new Set([...current, priority]);
-                            return priorityOrder.filter((value) => nextSet.has(value));
-                          })
-                        }
-                        aria-pressed={selected}
-                      >
-                        {priorityLabels[priority]}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
               <div className="board-filters__group">
-                <label htmlFor={`${selectIdPrefix}-due`}>
+                <label className="board-field-label" htmlFor={`${selectIdPrefix}-due`}>
                   <span>Due date</span>
                   <Select
                     id={`${selectIdPrefix}-due`}
@@ -989,6 +962,36 @@ const BoardLayout = (): JSX.Element => {
                     placeholder="Any due date"
                     fullWidth
                   />
+                </label>
+              </div>
+              <div className="board-filters__group board-filters__group--priority">
+                <label className="board-field-label">
+                  <span>Priority</span>
+                  <div className="board-filters__chips">
+                    {priorityOrder.map((priority) => {
+                      const selected = priorityFilter.includes(priority);
+                      return (
+                        <button
+                          key={priority}
+                          type="button"
+                          className={`board-filters__chip${selected ? ' board-filters__chip--active' : ''}`}
+                          onClick={() =>
+                            setPriorityFilter((current) => {
+                              if (selected) {
+                                const next = current.filter((entry) => entry !== priority);
+                                return next.length === 0 ? priorityOrder : next;
+                              }
+                              const nextSet = new Set([...current, priority]);
+                              return priorityOrder.filter((value) => nextSet.has(value));
+                            })
+                          }
+                          aria-pressed={selected}
+                        >
+                          {priorityLabels[priority]}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </label>
               </div>
               {filtersActive ? (
