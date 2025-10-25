@@ -176,12 +176,15 @@ const InboxPanel = ({ accessToken, steps, onCountsChange, onRequestSettings, onR
     return '';
   };
 
-  const renderStepAction = (action: OnboardingAction, disabled: boolean): (() => void) | undefined => {
+  const renderStepAction = (action: OnboardingAction, completed: boolean): (() => void) | undefined => {
+    if (completed) {
+      return undefined;
+    }
     if (action === 'PROFILE' || action === 'INVITE' || action === 'PROJECT') {
-      return disabled ? undefined : onRequestSettings;
+      return onRequestSettings;
     }
     if (action === 'TASK') {
-      return disabled ? undefined : onRequestNewTask;
+      return onRequestNewTask;
     }
     return undefined;
   };
@@ -189,10 +192,7 @@ const InboxPanel = ({ accessToken, steps, onCountsChange, onRequestSettings, onR
   return (
     <div className="inbox">
       <header className="inbox__header">
-        <div>
-          <h2>Inbox</h2>
-          <p>Keep track of invites, updates, and onboarding steps.</p>
-        </div>
+        <p>Keep track of invites, updates, and onboarding steps.</p>
         <button type="button" className="inbox__refresh" onClick={() => void refreshInbox(accessToken)} disabled={refreshing}>
           {refreshing ? 'Refreshing…' : 'Refresh'}
         </button>

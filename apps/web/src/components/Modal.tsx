@@ -5,9 +5,10 @@ interface ModalProps {
   onClose: () => void;
   title?: ReactNode;
   footer?: ReactNode;
+  bodyClassName?: string;
 }
 
-const Modal = ({ open, onClose, title, footer, children }: PropsWithChildren<ModalProps>): JSX.Element | null => {
+const Modal = ({ open, onClose, title, footer, bodyClassName, children }: PropsWithChildren<ModalProps>): JSX.Element | null => {
   if (!open) {
     return null;
   }
@@ -26,7 +27,7 @@ const Modal = ({ open, onClose, title, footer, children }: PropsWithChildren<Mod
             ×
           </button>
         </header>
-        <div className="modal__body">{children}</div>
+  <div className={`modal__body${bodyClassName ? ` ${bodyClassName}` : ''}`}>{children}</div>
         {footer && <footer className="modal__footer">{footer}</footer>}
       </div>
     </div>

@@ -864,43 +864,6 @@ const BoardLayout = (): JSX.Element => {
                 />
               </label>
             </div>
-            <div className="board-header__utility-actions">
-              <button
-                type="button"
-                className="board-button board-button--ghost"
-                onClick={() => setSettingsOpen(true)}
-                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-              >
-                Manage members
-              </button>
-              <button
-                type="button"
-                className="board-button board-button--ghost"
-                onClick={() => {
-                  setSettingsOpen(true);
-                  setInfoMessage('Share invites from Account & Workspace settings.');
-                }}
-                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-              >
-                Invite via link
-              </button>
-              <button
-                type="button"
-                className="board-button board-button--ghost"
-                onClick={() => setSettingsOpen(true)}
-                disabled={loadingProjects || visualSyncing || !activeProject}
-              >
-                Project overview
-              </button>
-              <button
-                type="button"
-                className="board-button board-button--ghost"
-                onClick={() => setSettingsOpen(true)}
-                disabled={loadingWorkspaces || visualSyncing || !activeWorkspace}
-              >
-                Create project
-              </button>
-            </div>
             <button
               type="button"
               className={`board-button board-button--ghost board-button--inbox${inboxBadge > 0 ? ' board-button--inbox-active' : ''}`}
@@ -1156,7 +1119,7 @@ const BoardLayout = (): JSX.Element => {
         open={taskDetailOpen}
         task={taskDetail}
         accessToken={accessToken}
-  canEdit={canMutateBoard && !visualSyncing}
+        canEdit={canMutateBoard && !visualSyncing}
         statusOptions={columnDefinitions.map((column) => ({ status: column.status, title: column.title }))}
         onClose={closeTaskDetail}
         onTaskUpdated={handleTaskUpdatedFromModal}
