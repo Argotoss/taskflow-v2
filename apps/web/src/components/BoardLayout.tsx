@@ -150,6 +150,7 @@ const BoardLayout = (): JSX.Element => {
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [taskModalSubmitting, setTaskModalSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [showSyncNotice, setShowSyncNotice] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
@@ -158,6 +159,7 @@ const BoardLayout = (): JSX.Element => {
   const [inboxSummary, setInboxSummary] = useState({ unreadNotifications: 0, pendingInvites: 0 });
   const workspaceEnsuredRef = useRef(false);
   const projectEnsuredRef = useRef<Record<string, boolean>>({});
+  const syncNoticeDelayRef = useRef<number | null>(null);
   const selectIdPrefix = useId();
 
   const initials = useMemo(() => getInitials(auth.user?.name, auth.user?.email), [auth.user?.email, auth.user?.name]);
@@ -567,6 +569,39 @@ const BoardLayout = (): JSX.Element => {
     setSearchQuery('');
   }, [selectedProjectId]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      if (!syncing) {
+        setShowSyncNotice(false);
+      }
+      return;
+    }
+
+    if (syncNoticeDelayRef.current !== null) {
+      window.clearTimeout(syncNoticeDelayRef.current);
+      syncNoticeDelayRef.current = null;
+    }
+
+    if (!syncing) {
+      setShowSyncNotice(false);
+      return;
+    }
+
+    setShowSyncNotice(false);
+    const timeoutId = window.setTimeout(() => {
+      setShowSyncNotice(true);
+      syncNoticeDelayRef.current = null;
+    }, 220);
+    syncNoticeDelayRef.current = timeoutId;
+
+    return () => {
+      if (syncNoticeDelayRef.current !== null) {
+        window.clearTimeout(syncNoticeDelayRef.current);
+        syncNoticeDelayRef.current = null;
+      }
+    };
+  }, [syncing]);
+
   const persistBoardState = async (
     projectId: string,
     token: string,
@@ -810,8 +845,9 @@ const BoardLayout = (): JSX.Element => {
     () => columnDefinitions.map((column) => ({ value: column.status, label: column.title })),
     []
   );
+  const visualSyncing = syncing && showSyncNotice;
   const canMutateBoard =
-    Boolean(selectedProjectId && accessToken) && !syncing && !loadingTasks && !loadingProjects && !loadingWorkspaces;
+    Boolean(selectedProjectId && accessToken) && !loadingTasks && !loadingProjects && !loadingWorkspaces;
 
   return (
     <div className="app-shell">
@@ -875,7 +911,7 @@ const BoardLayout = (): JSX.Element => {
                   value={workspaceValue}
                   onChange={(next) => setSelectedWorkspaceId(next.length === 0 ? null : next)}
                   options={workspaces.map((workspace) => ({ value: workspace.id, label: workspace.name }))}
-                  disabled={loadingWorkspaces || syncing || workspaces.length === 0}
+                  disabled={loadingWorkspaces || visualSyncing || workspaces.length === 0}
                   placeholder={workspaces.length === 0 ? 'No workspaces' : 'Select workspace'}
                 />
               </label>
@@ -886,7 +922,7 @@ const BoardLayout = (): JSX.Element => {
                   value={projectValue}
                   onChange={(next) => setSelectedProjectId(next.length === 0 ? null : next)}
                   options={projects.map((project) => ({ value: project.id, label: project.name }))}
-                  disabled={loadingProjects || syncing || projects.length === 0}
+                  disabled={loadingProjects || visualSyncing || projects.length === 0}
                   placeholder={projects.length === 0 ? 'No projects' : 'Select project'}
                 />
               </label>
@@ -996,13 +1032,13 @@ const BoardLayout = (): JSX.Element => {
 
         {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
         {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}
-        {syncing && !loadingTasks && <div className="board-feedback board-feedback--info">Saving changes…</div>}
+  {visualSyncing && !loadingTasks && <div className="board-feedback board-feedback--info">Saving changes…</div>}
 
         <DragDropContext onDragEnd={handleDragEnd}>
           <section className="board-columns" aria-label="Workspace board">
             {columnDefinitions.map((column) => {
               const columnHidden = hiddenColumnSet.has(column.status);
-              const columnInteractionsDisabled = columnHidden || !canMutateBoard;
+              const columnInteractionsDisabled = columnHidden || !canMutateBoard || visualSyncing;
               const dropDisabled = columnInteractionsDisabled || filtersActive;
               const visibleTasks = visibleBoard[column.status];
               const totalTasks = boardTasks[column.status].length;
@@ -1106,10 +1142,10 @@ const BoardLayout = (): JSX.Element => {
                                         handleTaskStatusChange(task.id, column.status, next as TaskStatus)
                                       }
                                       options={taskStatusSelectOptions}
-                                      disabled={!canMutateBoard}
+                                      disabled={!canMutateBoard || visualSyncing}
                                       size="compact"
                                     />
-                                    <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard}>
+                                    <button type="button" onClick={() => handleTaskRemove(task.id, column.status)} disabled={!canMutateBoard || visualSyncing}>
                                       Remove
                                     </button>
                                   </div>
@@ -1133,7 +1169,7 @@ const BoardLayout = (): JSX.Element => {
         open={taskDetailOpen}
         task={taskDetail}
         accessToken={accessToken}
-        canEdit={canMutateBoard}
+  canEdit={canMutateBoard && !visualSyncing}
         statusOptions={columnDefinitions.map((column) => ({ status: column.status, title: column.title }))}
         onClose={closeTaskDetail}
         onTaskUpdated={handleTaskUpdatedFromModal}
