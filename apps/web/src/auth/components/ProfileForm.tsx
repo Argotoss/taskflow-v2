@@ -3,11 +3,12 @@ import type { ChangeEvent, FormEvent, JSX } from 'react';
 import type { UpdateProfileBody } from '@taskflow/types';
 import type { StoredSession } from '../AuthContext.js';
 
-interface ProfileFormProps {
+type ProfileFormProps = {
   user: StoredSession['user'];
   onSubmit: (_changes: UpdateProfileBody) => Promise<void>;
   formId?: string;
-}
+  submitting?: boolean;
+};
 
 interface FormState {
   name: string;
@@ -29,7 +30,7 @@ const toFormState = (user: StoredSession['user']): FormState => ({
   inAppTaskUpdates: user.notificationPreferences.inAppTaskUpdates
 });
 
-const ProfileForm = ({ user, onSubmit, formId }: ProfileFormProps): JSX.Element => {
+const ProfileForm = ({ user, onSubmit, formId, submitting }: ProfileFormProps): JSX.Element => {
   const [form, setForm] = useState<FormState>(() => toFormState(user));
 
   useEffect(() => {
@@ -93,26 +94,27 @@ const ProfileForm = ({ user, onSubmit, formId }: ProfileFormProps): JSX.Element 
     };
 
   return (
-    <form id={formId} className="auth-form" onSubmit={handleSubmit}>
+    <form id={formId} className="auth-form" onSubmit={handleSubmit} aria-busy={submitting}>
       <label className="auth-form__field">
         <span>Name</span>
         <input
           type="text"
           value={form.name}
           onChange={handleTextChange('name')}
+          disabled={submitting}
           required
         />
       </label>
       <label className="auth-form__field">
         <span>Timezone</span>
-        <input type="text" value={form.timezone} onChange={handleTextChange('timezone')} />
+        <input type="text" value={form.timezone} onChange={handleTextChange('timezone')} disabled={submitting} />
       </label>
       <label className="auth-form__field">
         <span>Avatar URL</span>
-        <input type="url" value={form.avatarUrl} onChange={handleTextChange('avatarUrl')} />
+        <input type="url" value={form.avatarUrl} onChange={handleTextChange('avatarUrl')} disabled={submitting} />
       </label>
 
-      <fieldset className="auth-form__field">
+      <fieldset className="auth-form__field" disabled={submitting}>
         <legend>Notification Preferences</legend>
         <label className="auth-form__checkbox">
           <input
