@@ -1013,32 +1013,6 @@ const BoardLayout = (): JSX.Element => {
                                     ) : null}
                                     <span className="board-task__meta">Added {new Date(task.createdAt).toLocaleString()}</span>
                                   </div>
-                                  <div
-                                    className="board-task__actions"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                    }}
-                                    onKeyDown={(event) => {
-                                      event.stopPropagation();
-                                    }}
-                                  >
-                                    <button
-                                      type="button"
-                                      className="board-task__action board-task__action--edit"
-                                      onClick={() => openTaskDetail(task)}
-                                      disabled={visualSyncing}
-                                    >
-                                      Edit
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="board-task__action board-task__action--remove"
-                                      onClick={() => handleTaskRemove(task.id, column.status)}
-                                      disabled={!canMutateBoard || visualSyncing}
-                                    >
-                                      Remove
-                                    </button>
-                                  </div>
                                 </article>
                               )}
                             </Draggable>
