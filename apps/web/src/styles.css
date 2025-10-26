@@ -2097,6 +2097,12 @@ fieldset.auth-form__field {
   gap: 0.5rem;
 }
 
+.auth-form__field legend {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
 .auth-form__field input {
   border: 1px solid rgba(var(--rgb-text-secondary), 0.25);
   border-radius: 0.75rem;
@@ -2176,28 +2182,17 @@ fieldset.auth-form__field {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
-}
-
-.workspace-admin__header h3,
-.workspace-admin__header h4 {
-  margin: 0;
-}
-
-.workspace-admin__actions {
-  display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
+  gap: 0.75rem;
   flex-wrap: wrap;
 }
 
-.workspace-admin__actions .workspace-button {
-  flex: 0 0 auto;
+.workspace-admin__selector {
+  flex: 1 1 200px;
+  min-width: 200px;
 }
 
-.workspace-admin__selector {
-  min-width: 200px;
-  flex: 1 1 200px;
+.workspace-admin__new {
+  margin-left: auto;
 }
 
 .workspace-admin__notice {
@@ -2375,17 +2370,19 @@ fieldset.auth-form__field {
   background: rgba(var(--rgb-bg), 0.85);
 }
 
-.workspace-button--primary {
-  border-color: rgba(var(--rgb-accent), 0.55);
-  background: linear-gradient(135deg, rgba(var(--rgb-accent), 0.22), rgba(var(--rgb-accent), 0.32));
-  color: #f8fafc;
-  box-shadow: none;
+.workspace-button--accent {
+  background: rgba(var(--rgb-accent), 0.18);
+  border-color: rgba(var(--rgb-accent), 0.5);
+  color: var(--color-accent);
 }
 
-.workspace-button--primary:hover:not(:disabled) {
-  border-color: rgba(var(--rgb-accent), 0.75);
-  background: linear-gradient(135deg, rgba(var(--rgb-accent), 0.32), rgba(var(--rgb-accent), 0.42));
-  box-shadow: none;
+.workspace-button--accent:hover:not(:disabled) {
+  background: rgba(var(--rgb-accent), 0.25);
+  box-shadow: 0 16px 34px rgba(var(--rgb-accent), 0.25);
+}
+
+.workspace-button--full {
+  width: 100%;
 }
 
 .workspace-button:disabled {

@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { JSX, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent, JSX } from 'react';
 import type { UpdateProfileBody } from '@taskflow/types';
 import type { StoredSession } from '../AuthContext.js';
 
-/* eslint-disable @typescript-eslint/no-unused-vars, no-unused-vars */
 interface ProfileFormProps {
   user: StoredSession['user'];
-  onSubmit: (changes: UpdateProfileBody) => Promise<void>;
+  onSubmit: (_changes: UpdateProfileBody) => Promise<void>;
+  formId?: string;
 }
-/* eslint-enable @typescript-eslint/no-unused-vars, no-unused-vars */
 
 interface FormState {
   name: string;
@@ -30,7 +29,7 @@ const toFormState = (user: StoredSession['user']): FormState => ({
   inAppTaskUpdates: user.notificationPreferences.inAppTaskUpdates
 });
 
-const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
+const ProfileForm = ({ user, onSubmit, formId }: ProfileFormProps): JSX.Element => {
   const [form, setForm] = useState<FormState>(() => toFormState(user));
 
   useEffect(() => {
@@ -79,34 +78,38 @@ const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
     await onSubmit(payload);
   };
 
+  const handleTextChange =
+    (field: keyof Pick<FormState, 'name' | 'timezone' | 'avatarUrl'>) =>
+    (event: ChangeEvent<HTMLInputElement>): void => {
+      const { value } = event.currentTarget;
+      setForm((state) => ({ ...state, [field]: value }));
+    };
+
+  const handleCheckboxChange =
+    (field: keyof Pick<FormState, 'emailMentions' | 'emailTaskUpdates' | 'inAppMentions' | 'inAppTaskUpdates'>) =>
+    (event: ChangeEvent<HTMLInputElement>): void => {
+      const { checked } = event.currentTarget;
+      setForm((state) => ({ ...state, [field]: checked }));
+    };
+
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
+    <form id={formId} className="auth-form" onSubmit={handleSubmit}>
       <label className="auth-form__field">
         <span>Name</span>
         <input
           type="text"
           value={form.name}
-          onChange={(event) => setForm((state) => ({ ...state, name: event.currentTarget.value }))}
+          onChange={handleTextChange('name')}
           required
         />
       </label>
       <label className="auth-form__field">
         <span>Timezone</span>
-        <input
-          type="text"
-          placeholder="e.g. America/New_York"
-          value={form.timezone}
-          onChange={(event) => setForm((state) => ({ ...state, timezone: event.currentTarget.value }))}
-        />
+        <input type="text" value={form.timezone} onChange={handleTextChange('timezone')} />
       </label>
       <label className="auth-form__field">
         <span>Avatar URL</span>
-        <input
-          type="url"
-          placeholder="https://..."
-          value={form.avatarUrl}
-          onChange={(event) => setForm((state) => ({ ...state, avatarUrl: event.currentTarget.value }))}
-        />
+        <input type="url" value={form.avatarUrl} onChange={handleTextChange('avatarUrl')} />
       </label>
 
       <fieldset className="auth-form__field">
@@ -115,7 +118,7 @@ const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
           <input
             type="checkbox"
             checked={form.emailMentions}
-            onChange={(event) => setForm((state) => ({ ...state, emailMentions: event.currentTarget.checked }))}
+            onChange={handleCheckboxChange('emailMentions')}
           />
           Email mentions
         </label>
@@ -123,7 +126,7 @@ const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
           <input
             type="checkbox"
             checked={form.emailTaskUpdates}
-            onChange={(event) => setForm((state) => ({ ...state, emailTaskUpdates: event.currentTarget.checked }))}
+            onChange={handleCheckboxChange('emailTaskUpdates')}
           />
           Email task updates
         </label>
@@ -131,7 +134,7 @@ const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
           <input
             type="checkbox"
             checked={form.inAppMentions}
-            onChange={(event) => setForm((state) => ({ ...state, inAppMentions: event.currentTarget.checked }))}
+            onChange={handleCheckboxChange('inAppMentions')}
           />
           In-app mentions
         </label>
@@ -139,13 +142,12 @@ const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
           <input
             type="checkbox"
             checked={form.inAppTaskUpdates}
-            onChange={(event) => setForm((state) => ({ ...state, inAppTaskUpdates: event.currentTarget.checked }))}
+            onChange={handleCheckboxChange('inAppTaskUpdates')}
           />
           In-app task updates
         </label>
       </fieldset>
 
-      {/* Save button removed for unified bottom-row save */}
     </form>
   );
 };

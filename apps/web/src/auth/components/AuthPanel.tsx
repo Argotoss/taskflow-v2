@@ -70,6 +70,7 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
   const [showInvitePassword, setShowInvitePassword] = useState(false);
   const [showInviteConfirm, setShowInviteConfirm] = useState(false);
   const [profileError, setProfileError] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
   const [profileStatus, setProfileStatus] = useState('');
   const [accountInvites, setAccountInvites] = useState<AuthInviteSummary[]>([]);
   const [accountInvitesLoading, setAccountInvitesLoading] = useState(false);
@@ -330,11 +331,14 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
       return;
     }
 
+    setProfileSaving(true);
     try {
       await auth.updateProfile(changes);
       setProfileStatus('Profile updated');
     } catch (exception) {
       setProfileError(exception instanceof ApiError ? exception.message : 'Unable to update profile');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -468,6 +472,8 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
     );
   }
 
+  const profileFormId = 'account-profile-form';
+
   if (auth.user) {
     return (
       <aside className="auth-card">
@@ -486,20 +492,22 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
           <h3>Profile</h3>
           {profileError && <div className="auth-card__error">{profileError}</div>}
           {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
-          <ProfileForm user={auth.user} onSubmit={handleProfileSubmit} />
+          <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
         </section>
         {renderInviteTokenBanner()}
         {renderAccountInvites()}
         <section className="auth-card__group">
+          <h3>Workspaces</h3>
           <WorkspaceAdminPanel accessToken={auth.session?.tokens.accessToken ?? null} currentUserId={auth.user.id} />
         </section>
         <div className="auth-card__actions-row">
           <button
-            className="workspace-button workspace-button--primary auth-card__save action-button-uniform"
-            type="button"
-            onClick={() => {/* TODO: wire up unified save handler */}}
+            className="workspace-button workspace-button--accent auth-card__save action-button-uniform"
+            type="submit"
+            form={profileFormId}
+            disabled={profileSaving}
           >
-            Save changes
+            {profileSaving ? 'Saving…' : 'Save changes'}
           </button>
           <button
             className="workspace-button workspace-button--ghost auth-card__signout action-button-uniform"

@@ -527,7 +527,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
               Cancel
             </button>
           )}
-          <button className="workspace-button workspace-button--primary" type="submit" disabled={workspaceSubmitting}>
+          <button className="workspace-button workspace-button--accent" type="submit" disabled={workspaceSubmitting}>
             {workspaceSubmitting ? 'Creating…' : 'Create workspace'}
           </button>
         </div>
@@ -537,31 +537,29 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
   return (
     <div className="workspace-admin">
-      <div className="workspace-admin__header">
-        {workspaces.length > 0 && (
-          <div className="workspace-admin__actions">
-            <Select
-              id={`${selectIdPrefix}-workspace-picker`}
-              className="workspace-admin__selector"
-              value={selectedWorkspaceId}
-              onChange={(next) => setSelectedWorkspaceId(next)}
-              options={workspaceSelectOptions}
-              placeholder="Select workspace"
-              ariaLabel="Select workspace"
-            />
-            <button
-              type="button"
-              className="workspace-button"
-              onClick={() => {
-                setShowCreate(true);
-                setWorkspaceError('');
-              }}
-            >
-              New workspace
-            </button>
-          </div>
-        )}
-      </div>
+      {workspaces.length > 0 && (
+        <div className="workspace-admin__header">
+          <Select
+            id={`${selectIdPrefix}-workspace-picker`}
+            className="workspace-admin__selector"
+            value={selectedWorkspaceId}
+            onChange={(next) => setSelectedWorkspaceId(next)}
+            options={workspaceSelectOptions}
+            placeholder="Select workspace"
+            ariaLabel="Select workspace"
+          />
+          <button
+            type="button"
+            className="workspace-button workspace-button--accent workspace-admin__new"
+            onClick={() => {
+              setShowCreate(true);
+              setWorkspaceError('');
+            }}
+          >
+            New workspace
+          </button>
+        </div>
+      )}
 
       {showCreate || workspaces.length === 0 ? renderCreateForm() : null}
 
@@ -614,7 +612,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                     ariaLabel="Transfer workspace to"
                     fullWidth
                   />
-                  <button type="submit" className="workspace-button workspace-button--primary" disabled={transferSubmitting || !transferMembershipId}>
+                  <button type="submit" className="workspace-button workspace-button--accent" disabled={transferSubmitting || !transferMembershipId}>
                     {transferSubmitting ? 'Transferring…' : 'Transfer ownership'}
                   </button>
                 </form>
@@ -743,7 +741,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                   ariaLabel="Choose invite role"
                   fullWidth
                 />
-                <button type="submit" className="workspace-button workspace-button--primary action-button-uniform" disabled={!canInvite || inviteSubmitting}>
+                <button type="submit" className="workspace-button workspace-button--accent action-button-uniform" disabled={!canInvite || inviteSubmitting}>
                   {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
                 </button>
               </div>
