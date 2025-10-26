@@ -6,7 +6,6 @@ import type { StoredSession } from '../AuthContext.js';
 /* eslint-disable @typescript-eslint/no-unused-vars, no-unused-vars */
 interface ProfileFormProps {
   user: StoredSession['user'];
-  submitting: boolean;
   onSubmit: (changes: UpdateProfileBody) => Promise<void>;
 }
 /* eslint-enable @typescript-eslint/no-unused-vars, no-unused-vars */
@@ -31,7 +30,7 @@ const toFormState = (user: StoredSession['user']): FormState => ({
   inAppTaskUpdates: user.notificationPreferences.inAppTaskUpdates
 });
 
-const ProfileForm = ({ user, submitting, onSubmit }: ProfileFormProps): JSX.Element => {
+const ProfileForm = ({ user, onSubmit }: ProfileFormProps): JSX.Element => {
   const [form, setForm] = useState<FormState>(() => toFormState(user));
 
   useEffect(() => {
@@ -146,11 +145,7 @@ const ProfileForm = ({ user, submitting, onSubmit }: ProfileFormProps): JSX.Elem
         </label>
       </fieldset>
 
-      <div className="auth-form__actions">
-        <button className="workspace-button workspace-button--primary" type="submit" disabled={submitting}>
-          {submitting ? 'Saving…' : 'Save changes'}
-        </button>
-      </div>
+      {/* Save button removed for unified bottom-row save */}
     </form>
   );
 };

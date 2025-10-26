@@ -56,9 +56,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [editWorkspaceName, setEditWorkspaceName] = useState('');
   const [editWorkspaceDescription, setEditWorkspaceDescription] = useState('');
-  const [workspaceUpdating, setWorkspaceUpdating] = useState(false);
   const [workspaceUpdateError, setWorkspaceUpdateError] = useState('');
-  const [workspaceUpdateStatus, setWorkspaceUpdateStatus] = useState('');
   const selectIdPrefix = useId();
   const roleOptions = useMemo(
     () => membershipRoleSchema.options.map((role) => ({ value: role, label: roleLabels[role] })),
@@ -214,8 +212,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
       setEditWorkspaceName('');
       setEditWorkspaceDescription('');
     }
-    setWorkspaceUpdateError('');
-    setWorkspaceUpdateStatus('');
+  setWorkspaceUpdateError('');
     setTransferError('');
     setTransferStatus('');
     setTransferMembershipId('');
@@ -339,8 +336,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
     const trimmedName = editWorkspaceName.trim();
     const trimmedDescription = editWorkspaceDescription.trim();
     if (trimmedName.length === 0) {
-      setWorkspaceUpdateError('Workspace name is required');
-      setWorkspaceUpdateStatus('');
+  setWorkspaceUpdateError('Workspace name is required');
       return;
     }
     const payload: Record<string, unknown> = {};
@@ -352,24 +348,19 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
       payload.description = trimmedDescription.length === 0 ? null : trimmedDescription;
     }
     if (Object.keys(payload).length === 0) {
-      setWorkspaceUpdateStatus('No changes to save');
-      setWorkspaceUpdateError('');
+  setWorkspaceUpdateError('');
       return;
     }
-    setWorkspaceUpdating(true);
-    setWorkspaceUpdateError('');
-    setWorkspaceUpdateStatus('');
+  setWorkspaceUpdateError('');
     try {
       const updated = await workspaceApi.update(accessToken, selectedWorkspaceId, payload);
       setWorkspaces((current) => current.map((workspace) => (workspace.id === updated.id ? updated : workspace)));
       setEditWorkspaceName(updated.name);
       setEditWorkspaceDescription(updated.description ?? '');
-      setWorkspaceUpdateStatus('Workspace updated');
+  // Workspace updated
     } catch (exception) {
       const message = exception instanceof ApiError ? exception.message : 'Unable to update workspace';
       setWorkspaceUpdateError(message);
-    } finally {
-      setWorkspaceUpdating(false);
     }
   };
 
@@ -396,44 +387,6 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
       setTransferError(message);
     } finally {
       setTransferSubmitting(false);
-    }
-  };
-
-  const handleProjectRename = async (projectId: string): Promise<void> => {
-    if (!accessToken) {
-      return;
-    }
-    if (!canManageProjects) {
-      return;
-    }
-    const project = projects.find((entry) => entry.id === projectId);
-    if (!project) {
-      return;
-    }
-    const proposedName = (projectNameEdits[projectId] ?? '').trim();
-    if (proposedName.length === 0) {
-      setProjectError('Project name is required');
-      setProjectStatusMessage('');
-      return;
-    }
-    if (proposedName === project.name) {
-      setProjectStatusMessage('No changes to save');
-      setProjectError('');
-      return;
-    }
-    setProjectSaving((current) => ({ ...current, [projectId]: true }));
-    setProjectError('');
-    setProjectStatusMessage('');
-    try {
-      const updated = await projectApi.update(accessToken, projectId, { name: proposedName });
-      setProjects((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
-      setProjectNameEdits((current) => ({ ...current, [projectId]: updated.name }));
-      setProjectStatusMessage('Project updated');
-    } catch (exception) {
-      const message = exception instanceof ApiError ? exception.message : 'Unable to update project';
-      setProjectError(message);
-    } finally {
-      setProjectSaving((current) => ({ ...current, [projectId]: false }));
     }
   };
 
@@ -617,7 +570,6 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
           <div className="workspace-section">
             <h4>Workspace settings</h4>
             {workspaceUpdateError && <div className="workspace-admin__error">{workspaceUpdateError}</div>}
-            {workspaceUpdateStatus && <div className="workspace-admin__status">{workspaceUpdateStatus}</div>}
             {!canManageWorkspaceSettings && <p className="workspace-admin__notice">Only workspace owners or admins can update workspace details.</p>}
             <form className="workspace-create" onSubmit={handleWorkspaceUpdate}>
               <label className="workspace-create__field">
@@ -625,7 +577,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 <input
                   value={editWorkspaceName}
                   onChange={(event) => setEditWorkspaceName(event.target.value)}
-                  disabled={!canManageWorkspaceSettings || workspaceUpdating}
+                  disabled={!canManageWorkspaceSettings}
                   required
                 />
               </label>
@@ -634,14 +586,10 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 <textarea
                   value={editWorkspaceDescription}
                   onChange={(event) => setEditWorkspaceDescription(event.target.value)}
-                  disabled={!canManageWorkspaceSettings || workspaceUpdating}
+                  disabled={!canManageWorkspaceSettings}
                 />
               </label>
-              <div className="workspace-create__actions">
-                <button className="workspace-button workspace-button--primary" type="submit" disabled={!canManageWorkspaceSettings || workspaceUpdating}>
-                  {workspaceUpdating ? 'Saving…' : 'Save changes'}
-                </button>
-              </div>
+              {/* Save button removed for unified bottom-row save */}
             </form>
           </div>
 
@@ -702,14 +650,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                         </span>
                       </div>
                       <div className="workspace-projects__actions">
-                        <button
-                          type="button"
-                          className="workspace-button workspace-button--primary"
-                          onClick={() => void handleProjectRename(project.id)}
-                          disabled={!canManageProjects || saving}
-                        >
-                          Save
-                        </button>
+                        {/* Save button removed for unified bottom-row save */}
                         <button
                           type="button"
                           className="workspace-button workspace-button--ghost"
@@ -750,20 +691,20 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                   id={`${selectIdPrefix}-member-role-${member.id}`}
                   className="workspace-admin__selector"
                   value={member.role}
-                          onChange={(next) => handleRoleChange(member.id, next as MembershipRole)}
-                          options={roleOptions}
-                          disabled={disableRoleChange}
-                          size="compact"
-                          ariaLabel={`Change role for ${member.user.name ?? member.user.email}`}
-                        />
-                        <button
-                          type="button"
-                          className="workspace-button workspace-button--ghost"
-                          onClick={() => handleRemoveMember(member.id)}
-                          disabled={disableRemove}
-                        >
-                          {isSelf ? 'Leave' : 'Remove'}
-                        </button>
+                  onChange={(next) => handleRoleChange(member.id, next as MembershipRole)}
+                  options={roleOptions}
+                  disabled={disableRoleChange}
+                  size="compact"
+                  ariaLabel={`Change role for ${member.user.name ?? member.user.email}`}
+                />
+                <button
+                  type="button"
+                  className="workspace-button workspace-button--ghost action-button-uniform"
+                  onClick={() => handleRemoveMember(member.id)}
+                  disabled={disableRemove}
+                >
+                  {isSelf ? 'Leave' : 'Remove'}
+                </button>
                       </div>
                     </li>
                   );
@@ -782,28 +723,30 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
               </div>
             )}
             <form className="workspace-invite" onSubmit={handleInviteSubmit}>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(event) => setInviteEmail(event.target.value)}
-                placeholder="colleague@example.com"
-                disabled={!canInvite || inviteSubmitting}
-                required
-              />
-              <Select
-                id={`${selectIdPrefix}-invite-role`}
-                className="workspace-admin__selector"
-                value={inviteRole}
-                onChange={(next) => setInviteRole(next as MembershipRole)}
-                options={roleOptions}
-                disabled={!canInvite || inviteSubmitting}
-                placeholder="Select role"
-                ariaLabel="Choose invite role"
-                fullWidth
-              />
-              <button type="submit" className="workspace-button workspace-button--primary" disabled={!canInvite || inviteSubmitting}>
-                {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
-              </button>
+              <div className="workspace-invite__row">
+                <input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={(event) => setInviteEmail(event.target.value)}
+                  placeholder="colleague@example.com"
+                  disabled={!canInvite || inviteSubmitting}
+                  required
+                />
+                <Select
+                  id={`${selectIdPrefix}-invite-role`}
+                  className="workspace-admin__selector"
+                  value={inviteRole}
+                  onChange={(next) => setInviteRole(next as MembershipRole)}
+                  options={roleOptions}
+                  disabled={!canInvite || inviteSubmitting}
+                  placeholder="Select role"
+                  ariaLabel="Choose invite role"
+                  fullWidth
+                />
+                <button type="submit" className="workspace-button workspace-button--primary action-button-uniform" disabled={!canInvite || inviteSubmitting}>
+                  {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
+                </button>
+              </div>
             </form>
           </div>
 
@@ -819,10 +762,10 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                       <span className="workspace-invites__meta">Expires: {new Date(invite.expiresAt).toLocaleString()}</span>
                     </div>
                     <div className="workspace-invites__actions">
-                      <button type="button" className="workspace-button workspace-button--ghost" onClick={() => setInviteLink(buildInviteLink(invite.token))}>
+                      <button type="button" className="workspace-button workspace-button--ghost action-button-uniform" onClick={() => setInviteLink(buildInviteLink(invite.token))}>
                         Copy link
                       </button>
-                      <button type="button" className="workspace-button workspace-button--ghost" onClick={() => handleRevokeInvite(invite.id)}>
+                      <button type="button" className="workspace-button workspace-button--ghost action-button-uniform" onClick={() => handleRevokeInvite(invite.id)}>
                         Revoke
                       </button>
                     </div>
