@@ -29,8 +29,8 @@ const Modal = ({ open, onClose, title, footer, hideHeader = false, children }: P
             </button>
           </header>
         ) : null}
-        {children}
-        {footer && <footer className="modal__footer">{footer}</footer>}
+        <div className="modal__content">{children}</div>
+        {footer && <div className="modal__footer-actions">{footer}</div>}
       </div>
     </div>
   );

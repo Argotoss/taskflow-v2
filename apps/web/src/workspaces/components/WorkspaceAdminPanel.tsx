@@ -741,7 +741,11 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                   ariaLabel="Choose invite role"
                   fullWidth
                 />
-                <button type="submit" className="workspace-button workspace-button--accent action-button-uniform" disabled={!canInvite || inviteSubmitting}>
+                <button
+                  type="submit"
+                  className="workspace-button workspace-button--accent action-button-uniform workspace-invite__submit"
+                  disabled={!canInvite || inviteSubmitting}
+                >
                   {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
                 </button>
               </div>

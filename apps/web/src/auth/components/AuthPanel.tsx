@@ -465,10 +465,10 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
 
   if (!auth.ready) {
     return (
-      <aside className="auth-card auth-card--centered">
+      <div className="auth-card auth-card--centered">
         <div className="auth-card__spinner" aria-hidden="true" />
         <p>Preparing account settings…</p>
-      </aside>
+      </div>
     );
   }
 
@@ -476,7 +476,7 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
 
   if (auth.user) {
     return (
-      <aside className="auth-card">
+      <>
         <header className="auth-card__header">
           <div>
             <h2>Account</h2>
@@ -520,12 +520,12 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
             Sign out
           </button>
         </div>
-      </aside>
+      </>
     );
   }
 
   return (
-    <aside className="auth-card">
+    <div className="auth-card">
       <div className="auth-card__header">
         <h2>{modeLabels[mode]}</h2>
         <div className="auth-card__header-actions">
@@ -770,7 +770,7 @@ const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
           </button>
         </form>
       )}
-    </aside>
+    </div>
   );
 };
 
