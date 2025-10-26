@@ -140,7 +140,6 @@ const BoardLayout = (): JSX.Element => {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [boardTasks, setBoardTasks] = useState<Record<TaskStatus, TaskSummary[]>>(createEmptyBoard);
-  const [hiddenColumns, setHiddenColumns] = useState<TaskStatus[]>([]);
   const [assigneeFilter, setAssigneeFilter] = useState<'ALL' | 'UNASSIGNED' | string>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority[]>(priorityOrder);
   const [dueFilter, setDueFilter] = useState<DueFilter>('ALL');
@@ -175,33 +174,6 @@ const BoardLayout = (): JSX.Element => {
     () => statusOrder.reduce((sum, status) => sum + boardTasks[status].length, 0),
     [boardTasks]
   );
-
-  const boardSubtitle = useMemo(() => {
-    if (loadingWorkspaces) {
-      return 'Loading workspaces…';
-    }
-    if (!activeWorkspace) {
-      return 'Create a workspace to start organizing work.';
-    }
-    if (loadingProjects) {
-      return 'Loading projects…';
-    }
-    if (!activeProject) {
-      return projects.length === 0 ? 'Create a project to start planning work.' : 'Select a project to view tasks.';
-    }
-    if (loadingTasks) {
-      return 'Loading tasks…';
-    }
-    return `Drag and drop tasks to update status. ${totalTaskCount === 1 ? '1 task on this board.' : `${totalTaskCount} tasks on this board.`}`;
-  }, [
-    activeWorkspace,
-    activeProject,
-    loadingWorkspaces,
-    loadingProjects,
-    loadingTasks,
-    projects.length,
-    totalTaskCount
-  ]);
 
   const onboardingSteps = useMemo<OnboardingStep[]>(() => {
     const profileCompleted =
@@ -242,7 +214,6 @@ const BoardLayout = (): JSX.Element => {
     ];
   }, [auth.user?.avatarUrl, auth.user?.id, auth.user?.timezone, projects.length, totalTaskCount, workspaceMembers]);
 
-  const hiddenColumnSet = useMemo(() => new Set<TaskStatus>(hiddenColumns), [hiddenColumns]);
   const filtersActive = useMemo(
     () =>
       assigneeFilter !== 'ALL' ||
@@ -561,7 +532,6 @@ const BoardLayout = (): JSX.Element => {
   }, [accessToken, selectedProjectId]);
 
   useEffect(() => {
-    setHiddenColumns([]);
     setAssigneeFilter('ALL');
     setPriorityFilter(priorityOrder);
     setDueFilter('ALL');
@@ -638,14 +608,6 @@ const BoardLayout = (): JSX.Element => {
     } finally {
       setSyncing(false);
     }
-  };
-
-  const hideColumn = (status: TaskStatus): void => {
-    setHiddenColumns((current) => (current.includes(status) ? current : [...current, status]));
-  };
-
-  const showColumn = (status: TaskStatus): void => {
-    setHiddenColumns((current) => current.filter((entry) => entry !== status));
   };
 
   const resetTaskModal = (): void => {
@@ -827,7 +789,6 @@ const BoardLayout = (): JSX.Element => {
         <header className="board-header">
           <div>
             <h1>{activeWorkspace ? activeWorkspace.name : 'Workspace board'}</h1>
-            <p>{boardSubtitle}</p>
           </div>
           <div className="board-header__actions">
             {activeProject ? (
@@ -978,15 +939,18 @@ const BoardLayout = (): JSX.Element => {
           )}
         </section>
 
-        {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
-        {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}
-  {visualSyncing && !loadingTasks && <div className="board-feedback board-feedback--info">Saving changes…</div>}
+        {errorMessage || infoMessage || (visualSyncing && !loadingTasks) ? (
+          <div className="board-feedback-stack" aria-live="polite" role="status">
+            {errorMessage && <div className="board-feedback board-feedback--error">{errorMessage}</div>}
+            {infoMessage && <div className="board-feedback board-feedback--info">{infoMessage}</div>}
+            {visualSyncing && !loadingTasks ? <div className="board-feedback board-feedback--info">Saving changes…</div> : null}
+          </div>
+        ) : null}
 
         <DragDropContext onDragEnd={handleDragEnd}>
           <section className="board-columns" aria-label="Workspace board">
             {columnDefinitions.map((column) => {
-              const columnHidden = hiddenColumnSet.has(column.status);
-              const columnInteractionsDisabled = columnHidden || !canMutateBoard || visualSyncing;
+              const columnInteractionsDisabled = !canMutateBoard || visualSyncing;
               const dropDisabled = columnInteractionsDisabled || filtersActive;
               const visibleTasks = visibleBoard[column.status];
               const totalTasks = boardTasks[column.status].length;
@@ -999,40 +963,16 @@ const BoardLayout = (): JSX.Element => {
                       {...provided.droppableProps}
                       className={`board-column board-column--${column.className} ${
                         snapshot.isDraggingOver ? 'board-column--dragging-over' : ''
-                      } ${columnHidden ? 'board-column--hidden' : ''}`}
+                      }`}
                     >
                       <header className="board-column__header">
                         <h2>{column.title}</h2>
                         <div className="board-column__header-actions">
                           <span className="board-column__count">{columnCountLabel}</span>
-                          <button
-                            type="button"
-                            className="board-column__add-icon"
-                            onClick={() => openTaskModal(column.status)}
-                            disabled={columnInteractionsDisabled}
-                            aria-label={`Add task to ${column.title}`}
-                          >
-                            +
-                          </button>
-                          <button
-                            type="button"
-                            className="board-column__toggle"
-                            onClick={() => (columnHidden ? showColumn(column.status) : hideColumn(column.status))}
-                            aria-pressed={!columnHidden}
-                          >
-                            {columnHidden ? 'Show' : 'Hide'}
-                          </button>
                         </div>
                       </header>
                       <p className="board-column__description">{column.description}</p>
-                      {columnHidden ? (
-                        <div className="board-column__hidden" aria-live="polite">
-                          <span>Column hidden</span>
-                          <button type="button" onClick={() => showColumn(column.status)}>
-                            Show column
-                          </button>
-                        </div>
-                      ) : visibleTasks.length === 0 ? (
+                      {visibleTasks.length === 0 ? (
                         totalTasks === 0 ? (
                           <div className="board-column__empty">No tasks yet. Add one to get started.</div>
                         ) : (
