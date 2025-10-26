@@ -146,9 +146,11 @@ const ProfileForm = ({ user, submitting, onSubmit }: ProfileFormProps): JSX.Elem
         </label>
       </fieldset>
 
-      <button className="auth-card__primary" type="submit" disabled={submitting}>
-        {submitting ? 'Saving…' : 'Save changes'}
-      </button>
+      <div className="auth-form__actions">
+        <button className="workspace-button workspace-button--primary" type="submit" disabled={submitting}>
+          {submitting ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
     </form>
   );
 };

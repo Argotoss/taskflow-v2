@@ -574,7 +574,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
               Cancel
             </button>
           )}
-          <button className="workspace-button" type="submit" disabled={workspaceSubmitting}>
+          <button className="workspace-button workspace-button--primary" type="submit" disabled={workspaceSubmitting}>
             {workspaceSubmitting ? 'Creating…' : 'Create workspace'}
           </button>
         </div>
@@ -638,7 +638,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 />
               </label>
               <div className="workspace-create__actions">
-                <button className="workspace-button" type="submit" disabled={!canManageWorkspaceSettings || workspaceUpdating}>
+                <button className="workspace-button workspace-button--primary" type="submit" disabled={!canManageWorkspaceSettings || workspaceUpdating}>
                   {workspaceUpdating ? 'Saving…' : 'Save changes'}
                 </button>
               </div>
@@ -666,7 +666,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                     ariaLabel="Transfer workspace to"
                     fullWidth
                   />
-                  <button type="submit" className="workspace-button" disabled={transferSubmitting || !transferMembershipId}>
+                  <button type="submit" className="workspace-button workspace-button--primary" disabled={transferSubmitting || !transferMembershipId}>
                     {transferSubmitting ? 'Transferring…' : 'Transfer ownership'}
                   </button>
                 </form>
@@ -704,7 +704,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                       <div className="workspace-projects__actions">
                         <button
                           type="button"
-                          className="workspace-button workspace-button--ghost"
+                          className="workspace-button workspace-button--primary"
                           onClick={() => void handleProjectRename(project.id)}
                           disabled={!canManageProjects || saving}
                         >
@@ -801,7 +801,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                 ariaLabel="Choose invite role"
                 fullWidth
               />
-              <button type="submit" className="workspace-button" disabled={!canInvite || inviteSubmitting}>
+              <button type="submit" className="workspace-button workspace-button--primary" disabled={!canInvite || inviteSubmitting}>
                 {inviteSubmitting ? 'Sending…' : `Invite to ${selectedWorkspaceName}`}
               </button>
             </form>

@@ -1982,10 +1982,17 @@ h1 {
 }
 
 .auth-form__field fieldset,
+fieldset.auth-form__field,
 .auth-form__field legend {
   border: none;
   padding: 0;
   margin: 0;
+}
+
+fieldset.auth-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .auth-form__field input {
@@ -2048,17 +2055,19 @@ h1 {
   height: 1rem;
 }
 
+.auth-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .workspace-admin {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(var(--rgb-text-secondary), 0.2);
+  gap: 1.5rem;
 }
 
 .workspace-admin--empty {
   padding: 1rem 0 0;
-  border-top: 1px solid rgba(var(--rgb-text-secondary), 0.2);
 }
 
 .workspace-admin__header {
@@ -2076,12 +2085,17 @@ h1 {
 .workspace-admin__actions {
   display: flex;
   gap: 0.5rem;
-  align-items: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+
+.workspace-admin__actions .workspace-button {
+  flex: 0 0 auto;
 }
 
 .workspace-admin__selector {
-  min-width: 160px;
-  width: 100%;
+  min-width: 200px;
+  flex: 1 1 200px;
 }
 
 .workspace-admin__notice {
@@ -2220,12 +2234,18 @@ h1 {
 }
 
 .workspace-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(var(--rgb-accent), 0.35);
   background: rgba(var(--rgb-surface), 0.88);
   color: var(--color-text-primary);
   padding: 0.48rem 1rem;
   font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
   cursor: pointer;
   transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -2251,6 +2271,19 @@ h1 {
   border-color: rgba(var(--rgb-accent), 0.45);
   box-shadow: 0 12px 24px rgba(var(--rgb-bg), 0.32);
   background: rgba(var(--rgb-bg), 0.85);
+}
+
+.workspace-button--primary {
+  border-color: rgba(var(--rgb-accent), 0.55);
+  background: linear-gradient(135deg, rgba(var(--rgb-accent), 0.22), rgba(var(--rgb-accent), 0.32));
+  color: #f8fafc;
+  box-shadow: 0 18px 32px rgba(var(--rgb-accent), 0.22);
+}
+
+.workspace-button--primary:hover:not(:disabled) {
+  border-color: rgba(var(--rgb-accent), 0.75);
+  background: linear-gradient(135deg, rgba(var(--rgb-accent), 0.32), rgba(var(--rgb-accent), 0.42));
+  box-shadow: 0 22px 40px rgba(var(--rgb-accent), 0.28);
 }
 
 .workspace-button:disabled {
