@@ -1058,8 +1058,8 @@ const BoardLayout = (): JSX.Element => {
         />
       </Modal>
 
-      <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Account & Workspace">
-        <AuthPanel />
+      <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} hideHeader>
+        <AuthPanel onCloseRequested={() => setSettingsOpen(false)} />
       </Modal>
 
       <Modal

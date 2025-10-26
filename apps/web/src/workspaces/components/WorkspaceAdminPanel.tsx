@@ -502,28 +502,25 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
   if (!accessToken) {
     return (
-      <section className="workspace-card">
-        <h3>Workspace access</h3>
-        <p className="workspace-card__notice">Sign in to manage workspaces and invitations.</p>
-      </section>
+      <div className="workspace-admin workspace-admin--empty">
+        <p className="workspace-admin__notice">Sign in to manage workspaces and invitations.</p>
+      </div>
     );
   }
 
   if (loading) {
     return (
-      <section className="workspace-card">
-        <h3>Workspace access</h3>
-        <p className="workspace-card__notice">Loading workspaces…</p>
-      </section>
+      <div className="workspace-admin workspace-admin--empty">
+        <p className="workspace-admin__notice">Loading workspaces…</p>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <section className="workspace-card">
-        <h3>Workspace access</h3>
-        <div className="workspace-card__error">{error}</div>
-      </section>
+      <div className="workspace-admin workspace-admin--empty">
+        <div className="workspace-admin__error">{error}</div>
+      </div>
     );
   }
 
@@ -533,7 +530,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   const renderCreateForm = (): JSX.Element => (
     <div className="workspace-section">
       <h4>Create workspace</h4>
-      {workspaceError && <div className="workspace-card__error">{workspaceError}</div>}
+      {workspaceError && <div className="workspace-admin__error">{workspaceError}</div>}
       <form className="workspace-create" onSubmit={handleCreateWorkspace}>
         <label className="workspace-create__field">
           <span>Name</span>
@@ -586,14 +583,13 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
   );
 
   return (
-    <section className="workspace-card">
-      <div className="workspace-card__header">
-        <h3>Workspace access</h3>
+    <div className="workspace-admin">
+      <div className="workspace-admin__header">
         {workspaces.length > 0 && (
-          <div className="workspace-card__actions">
+          <div className="workspace-admin__actions">
             <Select
               id={`${selectIdPrefix}-workspace-picker`}
-              className="workspace-card__selector"
+              className="workspace-admin__selector"
               value={selectedWorkspaceId}
               onChange={(next) => setSelectedWorkspaceId(next)}
               options={workspaceSelectOptions}
@@ -620,9 +616,9 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
         <>
           <div className="workspace-section">
             <h4>Workspace settings</h4>
-            {workspaceUpdateError && <div className="workspace-card__error">{workspaceUpdateError}</div>}
-            {workspaceUpdateStatus && <div className="workspace-card__status">{workspaceUpdateStatus}</div>}
-            {!canManageWorkspaceSettings && <p className="workspace-card__notice">Only workspace owners or admins can update workspace details.</p>}
+            {workspaceUpdateError && <div className="workspace-admin__error">{workspaceUpdateError}</div>}
+            {workspaceUpdateStatus && <div className="workspace-admin__status">{workspaceUpdateStatus}</div>}
+            {!canManageWorkspaceSettings && <p className="workspace-admin__notice">Only workspace owners or admins can update workspace details.</p>}
             <form className="workspace-create" onSubmit={handleWorkspaceUpdate}>
               <label className="workspace-create__field">
                 <span>Name</span>
@@ -651,16 +647,17 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
           <div className="workspace-section">
             <h4>Ownership</h4>
-            {!isOwner && <p className="workspace-card__notice">Only the current owner can transfer the workspace.</p>}
-            {transferError && <div className="workspace-card__error">{transferError}</div>}
-            {transferStatus && <div className="workspace-card__status">{transferStatus}</div>}
+            {!isOwner && <p className="workspace-admin__notice">Only the current owner can transfer the workspace.</p>}
+            {transferError && <div className="workspace-admin__error">{transferError}</div>}
+            {transferStatus && <div className="workspace-admin__status">{transferStatus}</div>}
             {isOwner ? (
               members.length <= 1 ? (
-                <p className="workspace-card__notice">Invite another member before transferring ownership.</p>
+                <p className="workspace-admin__notice">Invite another member before transferring ownership.</p>
               ) : (
                 <form className="workspace-invite" onSubmit={handleTransferOwnership}>
                   <Select
                     id={`${selectIdPrefix}-transfer-owner`}
+                    className="workspace-admin__selector"
                     value={transferMembershipId}
                     onChange={(next) => setTransferMembershipId(next)}
                     options={transferOwnerOptions}
@@ -679,11 +676,11 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
           <div className="workspace-section">
             <h4>Projects</h4>
-            {!canManageProjects && <p className="workspace-card__notice">Only owners, admins, or contributors can update projects.</p>}
-            {projectError && <div className="workspace-card__error">{projectError}</div>}
-            {projectStatusMessage && <div className="workspace-card__status">{projectStatusMessage}</div>}
+            {!canManageProjects && <p className="workspace-admin__notice">Only owners, admins, or contributors can update projects.</p>}
+            {projectError && <div className="workspace-admin__error">{projectError}</div>}
+            {projectStatusMessage && <div className="workspace-admin__status">{projectStatusMessage}</div>}
             {projects.length === 0 ? (
-              <p className="workspace-card__notice">No projects yet. Create one to organize tasks.</p>
+              <p className="workspace-admin__notice">No projects yet. Create one to organize tasks.</p>
             ) : (
               <ul className="workspace-projects">
                 {projects.map((project) => {
@@ -730,12 +727,12 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
           </div>
 
           {membersLoading ? (
-            <p className="workspace-card__notice">Loading members…</p>
+            <p className="workspace-admin__notice">Loading members…</p>
           ) : (
             <div className="workspace-section">
               <h4>Members</h4>
-              {memberError && <div className="workspace-card__error">{memberError}</div>}
-              {memberNotice && <div className="workspace-card__status">{memberNotice}</div>}
+              {memberError && <div className="workspace-admin__error">{memberError}</div>}
+              {memberNotice && <div className="workspace-admin__status">{memberNotice}</div>}
               <ul className="workspace-members">
                 {members.map((member) => {
                   const isSelf = member.userId === currentUserId;
@@ -749,9 +746,10 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
                         <span className="workspace-members__email">{member.user.email}</span>
                       </div>
                       <div className="workspace-members__actions">
-                        <Select
-                          id={`${selectIdPrefix}-member-role-${member.id}`}
-                          value={member.role}
+                <Select
+                  id={`${selectIdPrefix}-member-role-${member.id}`}
+                  className="workspace-admin__selector"
+                  value={member.role}
                           onChange={(next) => handleRoleChange(member.id, next as MembershipRole)}
                           options={roleOptions}
                           disabled={disableRoleChange}
@@ -776,10 +774,10 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
 
           <div className="workspace-section">
             <h4>Invite teammates</h4>
-            {!canInvite && <p className="workspace-card__notice">Only workspace owners or admins can send invites.</p>}
-            {inviteError && <div className="workspace-card__error">{inviteError}</div>}
+            {!canInvite && <p className="workspace-admin__notice">Only workspace owners or admins can send invites.</p>}
+            {inviteError && <div className="workspace-admin__error">{inviteError}</div>}
             {inviteLink && (
-              <div className="workspace-card__status">
+              <div className="workspace-admin__status">
                 Invite ready: <a href={inviteLink}>{inviteLink}</a>
               </div>
             )}
@@ -794,6 +792,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
               />
               <Select
                 id={`${selectIdPrefix}-invite-role`}
+                className="workspace-admin__selector"
                 value={inviteRole}
                 onChange={(next) => setInviteRole(next as MembershipRole)}
                 options={roleOptions}
@@ -834,7 +833,7 @@ const WorkspaceAdminPanel = ({ accessToken, currentUserId }: WorkspaceAdminPanel
           )}
         </>
       )}
-    </section>
+    </div>
   );
 };
 

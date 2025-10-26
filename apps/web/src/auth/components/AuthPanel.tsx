@@ -42,7 +42,11 @@ const inviteRoleLabels: Record<InvitePreviewResponse['role'], string> = {
   VIEWER: 'Viewer'
 };
 
-const AuthPanel = (): JSX.Element => {
+interface AuthPanelProps {
+  onCloseRequested?: () => void;
+}
+
+const AuthPanel = ({ onCloseRequested }: AuthPanelProps): JSX.Element => {
   const auth = useAuth();
   const initial = useMemo(resolveInitialMode, []);
   const [mode, setMode] = useState<AuthMode>(initial.mode);
@@ -353,7 +357,7 @@ const AuthPanel = (): JSX.Element => {
     }
     if (inviteError) {
       return (
-        <div className="auth-card__section">
+        <div className="auth-card__banner">
           <div className="auth-card__error">{inviteError}</div>
           <div className="auth-card__list-actions">
             <button type="button" className="workspace-button workspace-button--ghost" onClick={clearInviteTokenState}>
@@ -368,7 +372,7 @@ const AuthPanel = (): JSX.Element => {
     }
     const matchesAccount = invitePreview.invitedEmail.toLowerCase() === auth.user.email.toLowerCase();
     return (
-      <div className="auth-card__section">
+      <div className="auth-card__banner">
         <p className="auth-card__subtitle">
           {invitePreview.invitedEmail} was invited to {invitePreview.workspaceName} as {inviteRoleLabels[invitePreview.role]}.
         </p>
@@ -416,25 +420,17 @@ const AuthPanel = (): JSX.Element => {
       return null;
     }
     if (accountInvitesLoading && accountInvites.length === 0) {
-      return (
-        <div className="auth-card__section">
-          <p className="auth-card__subtitle">Checking for pending workspace invites…</p>
-        </div>
-      );
+      return <p className="auth-card__subtitle">Checking for pending workspace invites…</p>;
     }
     if (accountInviteError && accountInvites.length === 0) {
-      return (
-        <div className="auth-card__section">
-          <div className="auth-card__error">{accountInviteError}</div>
-        </div>
-      );
+      return <div className="auth-card__error">{accountInviteError}</div>;
     }
     if (accountInvites.length === 0) {
       return null;
     }
     return (
-      <div className="auth-card__section">
-        <h3>Pending invites</h3>
+      <section className="auth-card__group">
+        <h3>Pending workspace invites</h3>
         {accountInviteStatus && <div className="auth-card__status">{accountInviteStatus}</div>}
         {accountInviteError && <div className="auth-card__error">{accountInviteError}</div>}
         <ul className="auth-card__list">
@@ -463,15 +459,15 @@ const AuthPanel = (): JSX.Element => {
             </li>
           ))}
         </ul>
-      </div>
+      </section>
     );
   };
 
   if (!auth.ready) {
     return (
-      <aside className="auth-card">
-        <h2>Authentication</h2>
-        <p>Loading…</p>
+      <aside className="auth-card auth-card--centered">
+        <div className="auth-card__spinner" aria-hidden="true" />
+        <p>Preparing account settings…</p>
       </aside>
     );
   }
@@ -479,16 +475,30 @@ const AuthPanel = (): JSX.Element => {
   if (auth.user) {
     return (
       <aside className="auth-card">
-        <h2>Account</h2>
-        <p className="auth-card__subtitle">Signed in as {auth.user.email}</p>
-        {profileError && <div className="auth-card__error">{profileError}</div>}
-        {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
-        <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
+        <header className="auth-card__header">
+          <div>
+            <h2>Account</h2>
+            <p className="auth-card__subtitle">Signed in as {auth.user.email}</p>
+          </div>
+          {onCloseRequested ? (
+            <button type="button" className="auth-card__close" aria-label="Close" onClick={onCloseRequested}>
+              ×
+            </button>
+          ) : null}
+        </header>
+        <section className="auth-card__group">
+          <h3>Profile</h3>
+          {profileError && <div className="auth-card__error">{profileError}</div>}
+          {profileStatus && <div className="auth-card__status">{profileStatus}</div>}
+          <ProfileForm user={auth.user} submitting={profileSaving} onSubmit={handleProfileSubmit} />
+        </section>
         {renderInviteTokenBanner()}
         {renderAccountInvites()}
-        <WorkspaceAdminPanel accessToken={auth.session?.tokens.accessToken ?? null} currentUserId={auth.user.id} />
+        <section className="auth-card__group">
+          <WorkspaceAdminPanel accessToken={auth.session?.tokens.accessToken ?? null} currentUserId={auth.user.id} />
+        </section>
         <button
-          className="auth-card__link"
+          className="workspace-button workspace-button--ghost"
           type="button"
           onClick={() => {
             clearFeedback();
@@ -505,21 +515,23 @@ const AuthPanel = (): JSX.Element => {
     <aside className="auth-card">
       <div className="auth-card__header">
         <h2>{modeLabels[mode]}</h2>
-        {mode !== 'login' && (
-          <button className="auth-card__link" type="button" onClick={() => switchMode('login')}>
-            Sign in
-          </button>
-        )}
-        {mode !== 'register' && (
-          <button className="auth-card__link" type="button" onClick={() => switchMode('register')}>
-            Create account
-          </button>
-        )}
-        {mode !== 'forgot' && (
-          <button className="auth-card__link" type="button" onClick={() => switchMode('forgot')}>
-            Reset password
-          </button>
-        )}
+        <div className="auth-card__header-actions">
+          {mode !== 'login' && (
+            <button className="workspace-button workspace-button--ghost" type="button" onClick={() => switchMode('login')}>
+              Sign in
+            </button>
+          )}
+          {mode !== 'register' && (
+            <button className="workspace-button workspace-button--ghost" type="button" onClick={() => switchMode('register')}>
+              Create account
+            </button>
+          )}
+          {mode !== 'forgot' && (
+            <button className="workspace-button workspace-button--ghost" type="button" onClick={() => switchMode('forgot')}>
+              Reset password
+            </button>
+          )}
+        </div>
       </div>
 
       {mode !== 'invite' && error && <div className="auth-card__error">{error}</div>}

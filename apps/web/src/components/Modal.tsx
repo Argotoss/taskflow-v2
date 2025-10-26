@@ -5,10 +5,10 @@ interface ModalProps {
   onClose: () => void;
   title?: ReactNode;
   footer?: ReactNode;
-  bodyClassName?: string;
+  hideHeader?: boolean;
 }
 
-const Modal = ({ open, onClose, title, footer, bodyClassName, children }: PropsWithChildren<ModalProps>): JSX.Element | null => {
+const Modal = ({ open, onClose, title, footer, hideHeader = false, children }: PropsWithChildren<ModalProps>): JSX.Element | null => {
   if (!open) {
     return null;
   }
@@ -21,13 +21,15 @@ const Modal = ({ open, onClose, title, footer, bodyClassName, children }: PropsW
           event.stopPropagation();
         }}
       >
-        <header className="modal__header">
-          {title ? (typeof title === 'string' ? <h2>{title}</h2> : title) : <span />}
-          <button type="button" className="modal__close" onClick={onClose} aria-label="Close">
-            ×
-          </button>
-        </header>
-  <div className={`modal__body${bodyClassName ? ` ${bodyClassName}` : ''}`}>{children}</div>
+        {!hideHeader ? (
+          <header className="modal__header">
+            {title ? (typeof title === 'string' ? <h2>{title}</h2> : title) : <span />}
+            <button type="button" className="modal__close" onClick={onClose} aria-label="Close">
+              ×
+            </button>
+          </header>
+        ) : null}
+        {children}
         {footer && <footer className="modal__footer">{footer}</footer>}
       </div>
     </div>
